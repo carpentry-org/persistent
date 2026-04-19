@@ -1,0 +1,42 @@
+(doc TestHarness "Build/test helpers for persistent structure tests.")
+(defmodule TestHarness
+  (doc getenv-bool "Read a bool env var with fallback. Accepts 1/0 and true/false/yes/no.")
+  (defn getenv-bool [name default]
+    (match (IO.getenv name)
+      (Maybe.Nothing) default
+      (Maybe.Just raw)
+        (if (or (String.= &raw "1") (String.= &raw "true") (String.= &raw "yes"))
+          true
+          (if (or (String.= &raw "0") (String.= &raw "false") (String.= &raw "no"))
+            false
+            default))))
+
+  (doc configure-build "Configure optimization and sanitizer flags.
+
+Environment variables:
+- `PERSISTENT_OPT_LEVEL`: `O0|O1|O2|O3` (or with leading `-`), default `-O1`
+- `PERSISTENT_SANITIZE`: `1|true|yes` enables ASan+UBSan, default `true`")
+  (defn configure-build []
+    (let [sanitize? (getenv-bool "PERSISTENT_SANITIZE" true)]
+      (do
+        (match (IO.getenv "PERSISTENT_OPT_LEVEL")
+          (Maybe.Nothing)
+            (Project.append-cflag "-O1")
+          (Maybe.Just raw)
+            (if (or (String.= &raw "O0") (String.= &raw "-O0"))
+              (Project.append-cflag "-O0")
+              (if (or (String.= &raw "O1") (String.= &raw "-O1"))
+                (Project.append-cflag "-O1")
+                (if (or (String.= &raw "O2") (String.= &raw "-O2"))
+                  (Project.append-cflag "-O2")
+                  (if (or (String.= &raw "O3") (String.= &raw "-O3"))
+                    (Project.append-cflag "-O3")
+                    (Project.append-cflag "-O1"))))))
+        (Project.append-cflag "-fno-omit-frame-pointer")
+        (if sanitize?
+          (do
+            (Project.append-cflag "-fsanitize=address -Wno-macro-redefined")
+            (Project.append-cflag "-fsanitize=undefined")
+            (Project.append-cflag "-fno-sanitize-recover=all"))
+          ()))))
+)

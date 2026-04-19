@@ -1,0 +1,2383 @@
+(doc Persistent "Macro-generated persistent data structures backed by `Rc`.")
+
+(defmodule Pair
+  (defn = [p q]
+    (and (= (Pair.a p) (Pair.a q))
+         (= (Pair.b p) (Pair.b q))))
+  (implements = Pair.=))
+
+(defmodule Persistent
+  (doc define-list "Generate a persistent singly linked list type.
+
+Example:
+
+  (Persistent.define-list IntList Int)
+
+This generates:
+- type `IntList`
+- module `IntList` with persistent list operations
+- internal node and node-`Rc` types for structural sharing")
+  (defmacro define-list [name value-type]
+    (let [node-type (Symbol.concat [name 'Node])
+          node-rc-type (Symbol.concat [name 'NodeRc])
+          node-init (Symbol.prefix node-type 'init)
+          node-value (Symbol.prefix node-type 'value)
+          node-next (Symbol.prefix node-type 'next)
+          list-init (Symbol.prefix name 'init)
+          list-root (Symbol.prefix name 'root)
+          list-count (Symbol.prefix name 'count)
+          node-rc-new (Symbol.prefix node-rc-type 'new)
+          node-rc-get (Symbol.prefix node-rc-type 'get)
+          node-rc-ptr-eq (Symbol.prefix node-rc-type 'ptr-eq)
+          node-rc-str (Symbol.prefix node-rc-type 'str)
+          node-rc-ref-type (Symbol.concat [node-rc-type 'Ref])
+          node-rc-ref-str (Symbol.prefix node-rc-ref-type 'str)
+          node-rc-ref-prn (Symbol.prefix node-rc-ref-type 'prn)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (register-type %node-rc-type "void*")
+         (deftype %node-type [value %value-type next (Maybe %node-rc-type)])
+         (hidden %node-type)
+
+         (Rc.define %node-rc-type %node-type)
+
+         (defmodule %node-rc-ref-type
+           (sig str (Fn [(Ref %node-rc-type q)] String))
+           (defn str [rc-ref] (%node-rc-str rc-ref))
+           (implements str %node-rc-ref-str)
+           (sig prn (Fn [(Ref %node-rc-type q)] String))
+           (defn prn [rc-ref] (%node-rc-str rc-ref))
+           (implements prn %node-rc-ref-prn))
+
+         (deftype %name [root (Maybe %node-rc-type) count Long])
+
+         (defmodule %name
+           (doc empty "Create an empty persistent list.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%list-init (Maybe.Nothing) 0l))
+
+           (doc singleton "Create a singleton list.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (let [node (%node-init value (Maybe.Nothing))
+                   head-rc (%node-rc-new node)]
+               (%list-init (Maybe.Just head-rc) 1l)))
+
+           (doc prepend "Prepend a value, returning a new list that shares the old tail.")
+           (sig prepend (Fn [%value-type (Ref %name q)] %name))
+           (defn prepend [value list-ref]
+             (let [old-head @(%list-root list-ref)
+                   old-len @(%list-count list-ref)
+                   node (%node-init value old-head)
+                   head-rc (%node-rc-new node)]
+               (%list-init (Maybe.Just head-rc) (Long.inc old-len))))
+
+           (doc length "Return the logical length in O(1).")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [list-ref]
+             @(%list-count list-ref))
+
+           (doc empty? "Returns `true` when list contains no elements.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [list-ref]
+             (= (length list-ref) 0l))
+
+           (private head-node)
+           (hidden head-node)
+           (sig head-node (Fn [(Ref %name q)] (Maybe %node-type)))
+           (defn head-node [list-ref]
+             (match @(%list-root list-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just head-rc)
+                 (Maybe.Just (%node-rc-get &head-rc))))
+
+           (doc head "Read the first value, if any.")
+           (sig head (Fn [(Ref %name q)] (Maybe %value-type)))
+           (defn head [list-ref]
+             (match (head-node list-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just node)
+                 (Maybe.Just @(%node-value &node))))
+
+           (doc tail "Return the tail list, if any. Shares nodes with original list.")
+           (sig tail (Fn [(Ref %name q)] (Maybe %name)))
+           (defn tail [list-ref]
+             (match (head-node list-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just node)
+                 (Maybe.Just
+                   (%list-init
+                     @(%node-next &node)
+                     (Long.dec @(%list-count list-ref))))))
+
+           (doc drop-n "Drop up to `count` elements from the front.")
+           (sig drop-n (Fn [Long (Ref %name q)] %name))
+           (defn drop-n [count list-ref]
+             (let-do [current @list-ref
+                      remaining count]
+               (while-do (> remaining 0l)
+                 (match (tail &current)
+                   (Maybe.Nothing)
+                     (do (set! current (empty)) (set! remaining 0l))
+                   (Maybe.Just next-list)
+                     (do (set! current next-list) (set! remaining (Long.dec remaining)))))
+               current))
+
+           (doc reduce "Reduce the list head-to-tail with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init list-ref]
+             (let-do [current @(%list-root list-ref)
+                      acc init
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just node-rc)
+                     (let [node (%node-rc-get node-rc)]
+                       (do
+                         (set! acc (~f acc @(%node-value &node)))
+                         (set! current @(%node-next &node))))))
+               acc))
+
+           (doc each "Invoke a side-effecting function on each element in list order.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f list-ref]
+             (let-do [current @(%list-root list-ref)
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just node-rc)
+                     (let [node (%node-rc-get node-rc)]
+                       (do
+                         (~f @(%node-value &node))
+                         (set! current @(%node-next &node))))))))
+
+           (doc to-array "Copy all values into an `Array` in list order.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [list-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] list-ref))
+
+           (doc = "Structural equality: same length and pairwise equal elements.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%list-count a-ref) @(%list-count b-ref))
+               false
+               (let-do [a-cur @(%list-root a-ref)
+                        b-cur @(%list-root b-ref)
+                        equal true
+                        keep-going true]
+                 (while-do keep-going
+                   (match-ref &a-cur
+                     (Maybe.Nothing) (set! keep-going false)
+                     (Maybe.Just a-rc)
+                       (match-ref &b-cur
+                         (Maybe.Nothing)
+                           (do (set! equal false) (set! keep-going false))
+                         (Maybe.Just b-rc)
+                           (let [a-node (%node-rc-get a-rc)
+                                 b-node (%node-rc-get b-rc)]
+                             (if (/= @(%node-value &a-node) @(%node-value &b-node))
+                               (do (set! equal false) (set! keep-going false))
+                               (do
+                                 (set! a-cur @(%node-next &a-node))
+                                 (set! b-cur @(%node-next &b-node))))))))
+                 equal)))
+           (implements = %name-eq)
+
+           (doc ptr-eq "Checks whether two lists share the exact same head node.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (match @(%list-root a-ref)
+               (Maybe.Nothing)
+                 (match @(%list-root b-ref)
+                   (Maybe.Nothing) true
+                   (Maybe.Just _) false)
+               (Maybe.Just a-head)
+                 (match @(%list-root b-ref)
+                   (Maybe.Just b-head) (%node-rc-ptr-eq &a-head &b-head)
+                   (Maybe.Nothing) false)))
+
+           (doc str "Diagnostic formatting for a list.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [list-ref]
+             (fmt "(PersistentList length=%ld)" (length list-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [list-ref]
+             (str list-ref)))))))
+
+(defmodule Persistent
+  (doc define-queue "Generate a persistent amortized O(1) queue using two shared lists.
+
+Example:
+
+  (Persistent.define-queue IntQueue Int)
+
+This generates:
+- type `IntQueue`
+- module `IntQueue` with queue operations
+- internal list type used as front/rear storage")
+  (defmacro define-queue [name value-type]
+    (let [list-type (Symbol.concat [name 'List])
+          queue-init (Symbol.prefix name 'init)
+          queue-front (Symbol.prefix name 'front)
+          queue-rear (Symbol.prefix name 'rear)
+          queue-count (Symbol.prefix name 'count)
+          queue-empty-pred (Symbol.prefix name 'empty?)
+          queue-peek (Symbol.prefix name 'peek)
+          list-empty (Symbol.prefix list-type 'empty)
+          list-singleton (Symbol.prefix list-type 'singleton)
+          list-prepend (Symbol.prefix list-type 'prepend)
+          list-empty? (Symbol.prefix list-type 'empty?)
+          list-head (Symbol.prefix list-type 'head)
+          list-tail (Symbol.prefix list-type 'tail)
+          list-ptr-eq (Symbol.prefix list-type 'ptr-eq)
+          list-reduce (Symbol.prefix list-type 'reduce)
+          list-each (Symbol.prefix list-type 'each)
+          list-to-array (Symbol.prefix list-type 'to-array)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-list %list-type %value-type)
+
+         (deftype %name [front %list-type rear %list-type count Long])
+
+         (defmodule %name
+           (doc empty "Create an empty queue.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%queue-init (%list-empty) (%list-empty) 0l))
+
+           (doc singleton "Create a singleton queue.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (%queue-init (%list-singleton value) (%list-empty) 1l))
+
+           (private reverse-list)
+           (hidden reverse-list)
+           (sig reverse-list (Fn [(Ref %list-type q)] %list-type))
+           (defn reverse-list [src-ref]
+             (let-do [current @src-ref
+                      acc (%list-empty)
+                      keep-going true]
+               (while-do keep-going
+                 (match (%list-head &current)
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just value)
+                     (do
+                       (set! acc (%list-prepend value &acc))
+                       (match (%list-tail &current)
+                         (Maybe.Just next-src) (set! current next-src)
+                         (Maybe.Nothing) (set! keep-going false)))))
+               acc))
+
+           (private normalize)
+           (hidden normalize)
+           (sig normalize (Fn [(Ref %list-type q) (Ref %list-type r) Long] %name))
+           (defn normalize [front-ref rear-ref count]
+             (if (%list-empty? front-ref)
+               (if (%list-empty? rear-ref)
+                 (%queue-init @front-ref @rear-ref count)
+                 (let [new-front (reverse-list rear-ref)
+                       empty-rear (%list-empty)]
+                   (%queue-init new-front empty-rear count)))
+               (%queue-init @front-ref @rear-ref count)))
+
+           (doc length "Return the logical queue length in O(1).")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [q-ref]
+             @(%queue-count q-ref))
+
+           (doc empty? "Returns `true` when queue has no elements.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [q-ref]
+             (= (length q-ref) 0l))
+
+           (doc enqueue "Enqueue at the rear, returning a new queue.")
+           (sig enqueue (Fn [%value-type (Ref %name q)] %name))
+           (defn enqueue [value q-ref]
+             (let [rear2 (%list-prepend value (%queue-rear q-ref))
+                   count2 (Long.inc @(%queue-count q-ref))]
+               (normalize (%queue-front q-ref) &rear2 count2)))
+
+           (doc peek "Read the front value, if any.")
+           (sig peek (Fn [(Ref %name q)] (Maybe %value-type)))
+           (defn peek [q-ref]
+             (if (%queue-empty-pred q-ref)
+               (Maybe.Nothing)
+               (%list-head (%queue-front q-ref))))
+
+           (doc dequeue "Dequeue front value, returning `(Maybe (Pair value next-queue))`.")
+           (sig dequeue (Fn [(Ref %name q)] (Maybe (Pair %value-type %name))))
+           (defn dequeue [q-ref]
+             (match (%queue-peek q-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just value)
+                 (let [count2 (Long.dec @(%queue-count q-ref))]
+                   (match (%list-tail (%queue-front q-ref))
+                     (Maybe.Just next-front)
+                       (let [q2 (normalize &next-front (%queue-rear q-ref) count2)]
+                         (Maybe.Just (Pair.init value q2)))
+                     (Maybe.Nothing)
+                       (let [front0 (%list-empty)
+                             q2 (normalize &front0 (%queue-rear q-ref) count2)]
+                         (Maybe.Just (Pair.init value q2)))))))
+
+           (doc ptr-eq "Pointer identity check for queue front and rear list roots plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%queue-count a-ref) @(%queue-count b-ref))
+                  (%list-ptr-eq (%queue-front a-ref) (%queue-front b-ref))
+                  (%list-ptr-eq (%queue-rear a-ref) (%queue-rear b-ref))))
+
+           (doc reduce "Reduce the queue in FIFO order with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init q-ref]
+             (let [after-front (%list-reduce f init (%queue-front q-ref))
+                   rear-rev (reverse-list (%queue-rear q-ref))]
+               (%list-reduce f after-front &rear-rev)))
+
+           (doc each "Invoke a side-effecting function on each element in FIFO order.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f q-ref]
+             (do
+               (%list-each f (%queue-front q-ref))
+               (let [rear-rev (reverse-list (%queue-rear q-ref))]
+                 (%list-each f &rear-rev))))
+
+           (doc to-array "Copy all values into an `Array` in FIFO order.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [q-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] q-ref))
+
+           (doc = "Structural equality: same length and pairwise equal FIFO sequence.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%queue-count a-ref) @(%queue-count b-ref))
+               false
+               (let [aa (to-array a-ref)
+                     ab (to-array b-ref)]
+                 (= &aa &ab))))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for a queue.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [q-ref]
+             (fmt "(PersistentQueue length=%ld)" (length q-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [q-ref]
+             (str q-ref)))))))
+
+
+(defmodule Persistent
+  (doc define-trie "Generate a persistent trie map keyed by `(Array K)`.
+
+Example:
+
+  (Persistent.define-trie IntTrie Int String)
+
+This generates:
+- type `IntTrie`
+- module `IntTrie` with trie-map operations
+- internal node and node-`Rc` types for structural sharing")
+  (defmacro define-trie [name key-part-type value-type]
+    (let [node-type (Symbol.concat [name 'Node])
+          node-rc-type (Symbol.concat [name 'NodeRc])
+          trie-init (Symbol.prefix name 'init)
+          trie-root (Symbol.prefix name 'root)
+          trie-count (Symbol.prefix name 'count)
+          node-init (Symbol.prefix node-type 'init)
+          node-label (Symbol.prefix node-type 'label)
+          node-value (Symbol.prefix node-type 'value)
+          node-child (Symbol.prefix node-type 'child)
+          node-sibling (Symbol.prefix node-type 'sibling)
+          node-rc-new (Symbol.prefix node-rc-type 'new)
+          node-rc-get (Symbol.prefix node-rc-type 'get)
+          node-rc-ptr-eq (Symbol.prefix node-rc-type 'ptr-eq)
+          node-rc-str (Symbol.prefix node-rc-type 'str)
+          node-rc-ref-type (Symbol.concat [node-rc-type 'Ref])
+          node-rc-ref-str (Symbol.prefix node-rc-ref-type 'str)
+          node-rc-ref-prn (Symbol.prefix node-rc-ref-type 'prn)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (register-type %node-rc-type "void*")
+         (deftype %node-type [
+                   label (Maybe %key-part-type)
+                   value (Maybe %value-type)
+                   child (Maybe %node-rc-type)
+                   sibling (Maybe %node-rc-type)])
+         (hidden %node-type)
+
+         (Rc.define %node-rc-type %node-type)
+
+         (defmodule %node-rc-ref-type
+           (sig str (Fn [(Ref %node-rc-type q)] String))
+           (defn str [rc-ref] (%node-rc-str rc-ref))
+           (implements str %node-rc-ref-str)
+           (sig prn (Fn [(Ref %node-rc-type q)] String))
+           (defn prn [rc-ref] (%node-rc-str rc-ref))
+           (implements prn %node-rc-ref-prn))
+
+         (deftype %name [root %node-rc-type count Long])
+
+         (defmodule %name
+           (private empty-node)
+           (hidden empty-node)
+           (sig empty-node (Fn [] %node-type))
+           (defn empty-node []
+             (%node-init (Maybe.Nothing) (Maybe.Nothing) (Maybe.Nothing) (Maybe.Nothing)))
+
+           (private node-empty?)
+           (hidden node-empty?)
+           (sig node-empty? (Fn [(Ref %node-type q)] Bool))
+           (defn node-empty? [node-ref]
+             (and (Maybe.nothing? (%node-value node-ref))
+                  (Maybe.nothing? (%node-child node-ref))))
+
+           (private node-label-matches?)
+           (hidden node-label-matches?)
+           (sig node-label-matches? (Fn [%key-part-type (Ref %node-type q)] Bool))
+           (defn node-label-matches? [label node-ref]
+             (match @(%node-label node-ref)
+               (Maybe.Just node-label) (= label node-label)
+               (Maybe.Nothing) false))
+
+           (private sibling-find)
+           (hidden sibling-find)
+           (sig sibling-find (Fn [%key-part-type (Ref (Maybe %node-rc-type) q)] (Maybe %node-rc-type)))
+           (defn sibling-find [label siblings-ref]
+             (let-do [current @siblings-ref
+                      result (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just head-rc)
+                     (let [head-node (%node-rc-get head-rc)]
+                       (if (node-label-matches? @&label &head-node)
+                         (do
+                           (set! result (Maybe.Just @head-rc))
+                           (set! keep-going false))
+                         (set! current @(%node-sibling &head-node))))))
+               result))
+
+           (private sibling-upsert)
+           (hidden sibling-upsert)
+           (sig sibling-upsert (Fn [%key-part-type (Ref %node-rc-type q) (Ref (Maybe %node-rc-type) r)] (Pair (Maybe %node-rc-type) Bool)))
+           (defn sibling-upsert [label child-rc-ref siblings-ref]
+             (let-do [current @siblings-ref
+                      path (the (Array %node-rc-type) [])
+                      new-head (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      replaced false
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing)
+                     (do
+                       (set! new-head (Maybe.Just @child-rc-ref))
+                       (set! keep-going false))
+                   (Maybe.Just head-rc)
+                     (let [head-node (%node-rc-get head-rc)]
+                       (if (node-label-matches? @&label &head-node)
+                         (let [child-node (%node-rc-get child-rc-ref)
+                               repl-node (%node-init
+                                           @(%node-label &child-node)
+                                           @(%node-value &child-node)
+                                           @(%node-child &child-node)
+                                           @(%node-sibling &head-node))
+                               repl-rc (%node-rc-new repl-node)]
+                           (do
+                             (set! new-head (Maybe.Just repl-rc))
+                             (set! replaced true)
+                             (set! keep-going false)))
+                         (do
+                           (set! path (Array.push-back path @head-rc))
+                           (set! current @(%node-sibling &head-node)))))))
+               (let-do [j (Int.dec (Array.length &path))]
+                 (while-do (>= j 0)
+                   (let [head-rc (Array.unsafe-nth &path j)
+                         head-node (%node-rc-get head-rc)
+                         rebuilt (%node-init
+                                   @(%node-label &head-node)
+                                   @(%node-value &head-node)
+                                   @(%node-child &head-node)
+                                   @&new-head)]
+                     (do
+                       (set! new-head (Maybe.Just (%node-rc-new rebuilt)))
+                       (set! j (Int.dec j))))))
+               (Pair.init new-head replaced)))
+
+           (private sibling-remove)
+           (hidden sibling-remove)
+           (sig sibling-remove (Fn [%key-part-type (Ref (Maybe %node-rc-type) q)] (Pair (Maybe %node-rc-type) Bool)))
+           (defn sibling-remove [label siblings-ref]
+             (let-do [current @siblings-ref
+                      path (the (Array %node-rc-type) [])
+                      after-removal (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      removed false
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just head-rc)
+                     (let [head-node (%node-rc-get head-rc)]
+                       (if (node-label-matches? @&label &head-node)
+                         (do
+                           (set! after-removal @(%node-sibling &head-node))
+                           (set! removed true)
+                           (set! keep-going false))
+                         (do
+                           (set! path (Array.push-back path @head-rc))
+                           (set! current @(%node-sibling &head-node)))))))
+               (if (not removed)
+                 (Pair.init @siblings-ref false)
+                 (let-do [j (Int.dec (Array.length &path))]
+                   (while-do (>= j 0)
+                     (let [head-rc (Array.unsafe-nth &path j)
+                           head-node (%node-rc-get head-rc)
+                           rebuilt (%node-init
+                                     @(%node-label &head-node)
+                                     @(%node-value &head-node)
+                                     @(%node-child &head-node)
+                                     @&after-removal)]
+                       (do
+                         (set! after-removal (Maybe.Just (%node-rc-new rebuilt)))
+                         (set! j (Int.dec j)))))
+                   (Pair.init after-removal true)))))
+
+           (private build-branch)
+           (hidden build-branch)
+           (sig build-branch (Fn [(Ref (Array %key-part-type) q) Int %value-type] %node-rc-type))
+           (defn build-branch [key-ref index value]
+             (let-do [last-idx (Int.dec (Array.length key-ref))
+                      last-part @(Array.unsafe-nth key-ref last-idx)
+                      node (%node-rc-new (%node-init
+                                           (Maybe.Just last-part)
+                                           (Maybe.Just value)
+                                           (Maybe.Nothing)
+                                           (Maybe.Nothing)))
+                      i (Int.dec last-idx)]
+               (while-do (>= i index)
+                 (let [part @(Array.unsafe-nth key-ref i)
+                       new-node (%node-rc-new (%node-init
+                                                (Maybe.Just part)
+                                                (Maybe.Nothing)
+                                                (Maybe.Just @&node)
+                                                (Maybe.Nothing)))]
+                   (do
+                     (set! node new-node)
+                     (set! i (Int.dec i)))))
+               node))
+
+           (private insert-node)
+           (hidden insert-node)
+           (sig insert-node (Fn [(Ref %node-rc-type q) (Ref (Array %key-part-type) r) Int %value-type] (Pair %node-rc-type Bool)))
+           (defn insert-node [node-rc-ref key-ref index value]
+             (let-do [current-rc @node-rc-ref
+                      i index
+                      path (the (Array (Pair %node-rc-type %key-part-type)) [])
+                      new-subtree-rc @node-rc-ref
+                      inserted false
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (if (>= i (Array.length key-ref))
+                     (let [had-value (match-ref (%node-value &node) (Maybe.Just _) true (Maybe.Nothing) false)
+                           node2 (%node-init
+                                   @(%node-label &node)
+                                   (Maybe.Just @&value)
+                                   @(%node-child &node)
+                                   @(%node-sibling &node))]
+                       (do
+                         (set! new-subtree-rc (%node-rc-new node2))
+                         (set! inserted (not had-value))
+                         (set! keep-going false)))
+                     (let [part @(Array.unsafe-nth key-ref i)
+                           found-child (sibling-find part (%node-child &node))]
+                       (match found-child
+                         (Maybe.Just child-rc)
+                           (do
+                             (set! path (Array.push-back path (Pair.init @&current-rc part)))
+                             (set! current-rc child-rc)
+                             (set! i (Int.inc i)))
+                         (Maybe.Nothing)
+                           (let [branch (build-branch key-ref i @&value)
+                                 upsert-rec (sibling-upsert part &branch (%node-child &node))
+                                 children2 @(Pair.a &upsert-rec)
+                                 node2 (%node-init
+                                         @(%node-label &node)
+                                         @(%node-value &node)
+                                         children2
+                                         @(%node-sibling &node))]
+                             (do
+                               (set! new-subtree-rc (%node-rc-new node2))
+                               (set! inserted true)
+                               (set! keep-going false))))))))
+               (let-do [j (Int.dec (Array.length &path))]
+                 (while-do (>= j 0)
+                   (let [frame (Array.unsafe-nth &path j)
+                         parent-rc (Pair.a frame)
+                         part (Pair.b frame)
+                         parent-node (%node-rc-get parent-rc)
+                         upsert-rec (sibling-upsert @part &new-subtree-rc (%node-child &parent-node))
+                         children2 @(Pair.a &upsert-rec)
+                         rebuilt (%node-init
+                                   @(%node-label &parent-node)
+                                   @(%node-value &parent-node)
+                                   children2
+                                   @(%node-sibling &parent-node))]
+                     (do
+                       (set! new-subtree-rc (%node-rc-new rebuilt))
+                       (set! j (Int.dec j))))))
+               (Pair.init new-subtree-rc inserted)))
+
+           (private get-node)
+           (hidden get-node)
+           (sig get-node (Fn [(Ref %node-rc-type q) (Ref (Array %key-part-type) r) Int] (Maybe %value-type)))
+           (defn get-node [node-rc-ref key-ref index]
+             (let-do [current-rc @node-rc-ref
+                      i index
+                      result (Maybe.Nothing)
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (if (>= i (Array.length key-ref))
+                     (do
+                       (set! result @(%node-value &node))
+                       (set! keep-going false))
+                     (let [part @(Array.unsafe-nth key-ref i)
+                           found (sibling-find part (%node-child &node))]
+                       (match found
+                         (Maybe.Nothing) (set! keep-going false)
+                         (Maybe.Just child-rc)
+                           (do
+                             (set! current-rc child-rc)
+                             (set! i (Int.inc i))))))))
+               result))
+
+           (private remove-node)
+           (hidden remove-node)
+           (sig remove-node (Fn [(Ref %node-rc-type q) (Ref (Array %key-part-type) r) Int] (Pair %node-rc-type (Pair Bool Bool))))
+           (defn remove-node [node-rc-ref key-ref index]
+             (let-do [current-rc @node-rc-ref
+                      i index
+                      path (the (Array (Pair %node-rc-type %key-part-type)) [])
+                      new-subtree-rc @node-rc-ref
+                      removed false
+                      current-empty false
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (if (>= i (Array.length key-ref))
+                     (match-ref (%node-value &node)
+                       (Maybe.Nothing)
+                         (do
+                           (set! current-empty (node-empty? &node))
+                           (set! keep-going false))
+                       (Maybe.Just _)
+                         (let [node2 (%node-init
+                                       @(%node-label &node)
+                                       (Maybe.Nothing)
+                                       @(%node-child &node)
+                                       @(%node-sibling &node))
+                               empty2 (node-empty? &node2)]
+                           (do
+                             (set! new-subtree-rc (%node-rc-new node2))
+                             (set! removed true)
+                             (set! current-empty empty2)
+                             (set! keep-going false))))
+                     (let [part @(Array.unsafe-nth key-ref i)
+                           found (sibling-find part (%node-child &node))]
+                       (match found
+                         (Maybe.Nothing)
+                           (do
+                             (set! current-empty (node-empty? &node))
+                             (set! keep-going false))
+                         (Maybe.Just child-rc)
+                           (do
+                             (set! path (Array.push-back path (Pair.init @&current-rc part)))
+                             (set! current-rc child-rc)
+                             (set! i (Int.inc i))))))))
+               (if (not removed)
+                 (Pair.init @node-rc-ref (Pair.init false current-empty))
+                 (let-do [j (Int.dec (Array.length &path))]
+                   (while-do (>= j 0)
+                     (let [frame (Array.unsafe-nth &path j)
+                           parent-rc (Pair.a frame)
+                           part (Pair.b frame)
+                           parent-node (%node-rc-get parent-rc)
+                           children2 (if current-empty
+                                       @(Pair.a &(sibling-remove @part (%node-child &parent-node)))
+                                       @(Pair.a &(sibling-upsert @part &new-subtree-rc (%node-child &parent-node))))
+                           rebuilt (%node-init
+                                     @(%node-label &parent-node)
+                                     @(%node-value &parent-node)
+                                     children2
+                                     @(%node-sibling &parent-node))
+                           empty2 (node-empty? &rebuilt)]
+                       (do
+                         (set! new-subtree-rc (%node-rc-new rebuilt))
+                         (set! current-empty empty2)
+                         (set! j (Int.dec j)))))
+                   (Pair.init new-subtree-rc (Pair.init true current-empty))))))
+
+           (private subtree-has-entry?)
+           (hidden subtree-has-entry?)
+           (sig subtree-has-entry? (Fn [(Ref %node-rc-type q)] Bool))
+           (defn subtree-has-entry? [node-rc-ref]
+             (let-do [stack (the (Array %node-rc-type) [])
+                      found false]
+               (let [node (%node-rc-get node-rc-ref)]
+                 (match-ref (%node-value &node)
+                   (Maybe.Just _) (set! found true)
+                   (Maybe.Nothing)
+                     (match-ref (%node-child &node)
+                       (Maybe.Nothing) ()
+                       (Maybe.Just c) (set! stack (Array.push-back stack @c)))))
+               (while-do (and (not found) (> (Array.length &stack) 0))
+                 (let [top-rc (Array.pop-back! &stack)
+                       node (%node-rc-get &top-rc)]
+                   (do
+                     (match-ref (%node-value &node)
+                       (Maybe.Just _) (set! found true)
+                       (Maybe.Nothing) ())
+                     (when (not found)
+                       (do
+                         (match-ref (%node-child &node)
+                           (Maybe.Nothing) ()
+                           (Maybe.Just c) (set! stack (Array.push-back stack @c)))
+                         (match-ref (%node-sibling &node)
+                           (Maybe.Nothing) ()
+                           (Maybe.Just s) (set! stack (Array.push-back stack @s))))))))
+               found))
+
+           (private find-prefix-node)
+           (hidden find-prefix-node)
+           (sig find-prefix-node (Fn [(Ref %node-rc-type q) (Ref (Array %key-part-type) r) Int] (Maybe %node-rc-type)))
+           (defn find-prefix-node [node-rc-ref prefix-ref index]
+             (let-do [current-rc @node-rc-ref
+                      i index
+                      result (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      keep-going true]
+               (while-do keep-going
+                 (if (>= i (Array.length prefix-ref))
+                   (do
+                     (set! result (Maybe.Just @&current-rc))
+                     (set! keep-going false))
+                   (let [node (%node-rc-get &current-rc)
+                         part @(Array.unsafe-nth prefix-ref i)
+                         found (sibling-find part (%node-child &node))]
+                     (match found
+                       (Maybe.Nothing) (set! keep-going false)
+                       (Maybe.Just child-rc)
+                         (do
+                           (set! current-rc child-rc)
+                           (set! i (Int.inc i)))))))
+               result))
+
+           (doc empty "Create an empty trie.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (let [root (%node-rc-new (empty-node))]
+               (%trie-init root 0l)))
+
+           (doc singleton "Create a trie containing one key/value pair.")
+           (sig singleton (Fn [(Ref (Array %key-part-type) q) %value-type] %name))
+           (defn singleton [key-ref value]
+             (let [root0 (%node-rc-new (empty-node))
+                   result (insert-node &root0 key-ref 0 value)
+                   root1 @(Pair.a &result)]
+               (%trie-init root1 1l)))
+
+           (doc length "Return number of stored key/value pairs.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [trie-ref]
+             @(%trie-count trie-ref))
+
+           (doc empty? "Returns `true` when trie contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [trie-ref]
+             (= (length trie-ref) 0l))
+
+           (doc insert "Insert or replace value for key, returning a new trie.")
+           (sig insert (Fn [(Ref (Array %key-part-type) q) %value-type (Ref %name r)] %name))
+           (defn insert [key-ref value trie-ref]
+             (let [root @(%trie-root trie-ref)
+                   result (insert-node &root key-ref 0 value)
+                   root2 @(Pair.a &result)
+                   inserted? @(Pair.b &result)
+                   count2 (if inserted?
+                            (Long.inc @(%trie-count trie-ref))
+                            @(%trie-count trie-ref))]
+               (%trie-init root2 count2)))
+
+           (doc get "Lookup key, returning `Maybe` value.")
+           (sig get (Fn [(Ref (Array %key-part-type) q) (Ref %name r)] (Maybe %value-type)))
+           (defn get [key-ref trie-ref]
+             (get-node (%trie-root trie-ref) key-ref 0))
+
+           (doc contains? "Returns `true` when key exists in trie.")
+           (sig contains? (Fn [(Ref (Array %key-part-type) q) (Ref %name r)] Bool))
+           (defn contains? [key-ref trie-ref]
+             (match (get key-ref trie-ref)
+               (Maybe.Just _) true
+               (Maybe.Nothing) false))
+
+           (doc remove "Remove key (if present), returning a new trie.")
+           (sig remove (Fn [(Ref (Array %key-part-type) q) (Ref %name r)] %name))
+           (defn remove [key-ref trie-ref]
+             (let [root @(%trie-root trie-ref)
+                   result (remove-node &root key-ref 0)
+                   root2 @(Pair.a &result)
+                   flags @(Pair.b &result)
+                   removed? @(Pair.a &flags)
+                   count2 (if removed?
+                            (Long.dec @(%trie-count trie-ref))
+                            @(%trie-count trie-ref))]
+               (%trie-init root2 count2)))
+
+           (doc contains-prefix? "Returns `true` if any entry exists under this key prefix.")
+           (sig contains-prefix? (Fn [(Ref (Array %key-part-type) q) (Ref %name r)] Bool))
+           (defn contains-prefix? [prefix-ref trie-ref]
+             (match (find-prefix-node (%trie-root trie-ref) prefix-ref 0)
+               (Maybe.Nothing) false
+               (Maybe.Just node-rc) (subtree-has-entry? &node-rc)))
+
+           (doc ptr-eq "Pointer identity check for root node plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%trie-count a-ref) @(%trie-count b-ref))
+                  (%node-rc-ptr-eq (%trie-root a-ref) (%trie-root b-ref))))
+
+           (doc reduce-values "Reduce over values only, skipping key path reconstruction.")
+           (sig reduce-values (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce-values [f init trie-ref]
+             (let-do [stack (the (Array (Maybe %node-rc-type)) [])
+                      acc init]
+               (set! stack (Array.push-back stack (Maybe.Just @(%trie-root trie-ref))))
+               (while-do (> (Array.length &stack) 0)
+                 (match (Array.pop-back! &stack)
+                   (Maybe.Nothing) ()
+                   (Maybe.Just top-rc)
+                     (let [node (%node-rc-get &top-rc)]
+                       (do
+                         (match-ref (%node-value &node)
+                           (Maybe.Nothing) ()
+                           (Maybe.Just v) (set! acc (~f acc @v)))
+                         (set! stack (Array.push-back stack @(%node-child &node)))
+                         (set! stack (Array.push-back stack @(%node-sibling &node)))))))
+               acc))
+
+           (doc reduce "Reduce over `(Pair key value)` entries in DFS sibling-insertion order.")
+           (sig reduce (Fn [(Ref (Fn [a (Pair (Array %key-part-type) %value-type)] a) q) a (Ref %name r)] a))
+           (defn reduce [f init trie-ref]
+             (let-do [stack (the (Array (Pair (Maybe %node-rc-type) Bool)) [])
+                      path (the (Array %key-part-type) [])
+                      acc init]
+               (set! stack (Array.push-back stack (Pair.init (Maybe.Just @(%trie-root trie-ref)) false)))
+               (while-do (> (Array.length &stack) 0)
+                 (let [frame (Array.pop-back! &stack)
+                       maybe-rc (Pair.a &frame)
+                       is-exit @(Pair.b &frame)]
+                   (match-ref maybe-rc
+                     (Maybe.Nothing) ()
+                     (Maybe.Just rc)
+                       (let [node (%node-rc-get rc)]
+                         (if is-exit
+                           (match-ref (%node-label &node)
+                             (Maybe.Nothing) ()
+                             (Maybe.Just _) (ignore (Array.pop-back! &path)))
+                           (do
+                             (set! stack (Array.push-back stack (Pair.init @(%node-sibling &node) false)))
+                             (set! stack (Array.push-back stack (Pair.init (Maybe.Just @rc) true)))
+                             (match-ref (%node-label &node)
+                               (Maybe.Nothing) ()
+                               (Maybe.Just l) (set! path (Array.push-back path @l)))
+                             (match-ref (%node-value &node)
+                               (Maybe.Nothing) ()
+                               (Maybe.Just v) (set! acc (~f acc (Pair.init @&path @v))))
+                             (set! stack (Array.push-back stack (Pair.init @(%node-child &node) false)))))))))
+               acc))
+
+           (doc each "Invoke a side-effecting function on each `(Pair key value)` entry.")
+           (sig each (Fn [(Ref (Fn [(Pair (Array %key-part-type) %value-type)] ()) q) (Ref %name r)] ()))
+           (defn each [f trie-ref]
+             (let-do [stack (the (Array (Pair (Maybe %node-rc-type) Bool)) [])
+                      path (the (Array %key-part-type) [])]
+               (set! stack (Array.push-back stack (Pair.init (Maybe.Just @(%trie-root trie-ref)) false)))
+               (while-do (> (Array.length &stack) 0)
+                 (let [frame (Array.pop-back! &stack)
+                       maybe-rc (Pair.a &frame)
+                       is-exit @(Pair.b &frame)]
+                   (match-ref maybe-rc
+                     (Maybe.Nothing) ()
+                     (Maybe.Just rc)
+                       (let [node (%node-rc-get rc)]
+                         (if is-exit
+                           (match-ref (%node-label &node)
+                             (Maybe.Nothing) ()
+                             (Maybe.Just _) (ignore (Array.pop-back! &path)))
+                           (do
+                             (set! stack (Array.push-back stack (Pair.init @(%node-sibling &node) false)))
+                             (set! stack (Array.push-back stack (Pair.init (Maybe.Just @rc) true)))
+                             (match-ref (%node-label &node)
+                               (Maybe.Nothing) ()
+                               (Maybe.Just l) (set! path (Array.push-back path @l)))
+                             (match-ref (%node-value &node)
+                               (Maybe.Nothing) ()
+                               (Maybe.Just v) (~f (Pair.init @&path @v)))
+                             (set! stack (Array.push-back stack (Pair.init @(%node-child &node) false)))))))))))
+
+           (doc to-array "Copy all entries into an `Array` of `(Pair key value)`.")
+           (sig to-array (Fn [(Ref %name q)] (Array (Pair (Array %key-part-type) %value-type))))
+           (defn to-array [trie-ref]
+             (reduce &(fn [acc p] (Array.push-back acc p)) [] trie-ref))
+
+           (doc keys "Collect all keys into an `Array`.")
+           (sig keys (Fn [(Ref %name q)] (Array (Array %key-part-type))))
+           (defn keys [trie-ref]
+             (reduce &(fn [acc p] (Array.push-back acc @(Pair.a &p))) [] trie-ref))
+
+           (doc values "Collect all values into an `Array`.")
+           (sig values (Fn [(Ref %name q)] (Array %value-type)))
+           (defn values [trie-ref]
+             (reduce-values &(fn [acc v] (Array.push-back acc v)) [] trie-ref))
+
+           (doc = "Structural equality: same size and same set of entries.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%trie-count a-ref) @(%trie-count b-ref))
+               false
+               (reduce &(fn [acc p]
+                 (and acc
+                      (match (get (Pair.a &p) b-ref)
+                        (Maybe.Nothing) false
+                        (Maybe.Just bv) (= &bv (Pair.b &p)))))
+                 true a-ref)))
+           (implements = %name-eq)
+
+
+           (doc str "Diagnostic formatting for a trie.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [trie-ref]
+             (fmt "(PersistentTrie size=%ld)" (length trie-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [trie-ref]
+             (str trie-ref)))))))
+
+(defmodule Persistent
+  (doc define-deque "Generate a persistent deque backed by two shared lists.
+
+Example:
+
+  (Persistent.define-deque IntDeque Int)
+
+This generates:
+- type `IntDeque`
+- module `IntDeque` with deque operations
+- internal list type used as front/rear storage")
+  (defmacro define-deque [name value-type]
+    (let [list-type (Symbol.concat [name 'List])
+          deque-init (Symbol.prefix name 'init)
+          deque-front (Symbol.prefix name 'front)
+          deque-rear (Symbol.prefix name 'rear)
+          deque-count (Symbol.prefix name 'count)
+          deque-empty-pred (Symbol.prefix name 'empty?)
+          list-empty (Symbol.prefix list-type 'empty)
+          list-singleton (Symbol.prefix list-type 'singleton)
+          list-prepend (Symbol.prefix list-type 'prepend)
+          list-empty? (Symbol.prefix list-type 'empty?)
+          list-head (Symbol.prefix list-type 'head)
+          list-tail (Symbol.prefix list-type 'tail)
+          list-ptr-eq (Symbol.prefix list-type 'ptr-eq)
+          list-reduce (Symbol.prefix list-type 'reduce)
+          list-each (Symbol.prefix list-type 'each)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-list %list-type %value-type)
+
+         (deftype %name [front %list-type rear %list-type count Long])
+
+         (defmodule %name
+           (private reverse-list)
+           (hidden reverse-list)
+           (sig reverse-list (Fn [(Ref %list-type q)] %list-type))
+           (defn reverse-list [src-ref]
+             (let-do [current @src-ref
+                      acc (%list-empty)
+                      keep-going true]
+               (while-do keep-going
+                 (match (%list-head &current)
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just value)
+                     (do
+                       (set! acc (%list-prepend value &acc))
+                       (match (%list-tail &current)
+                         (Maybe.Just next-src) (set! current next-src)
+                         (Maybe.Nothing) (set! keep-going false)))))
+               acc))
+
+           (doc empty "Create an empty deque.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%deque-init (%list-empty) (%list-empty) 0l))
+
+           (doc singleton "Create a singleton deque.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (%deque-init (%list-singleton value) (%list-empty) 1l))
+
+           (doc length "Return the logical deque length in O(1).")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [dq-ref]
+             @(%deque-count dq-ref))
+
+           (doc empty? "Returns `true` when deque has no elements.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [dq-ref]
+             (= (length dq-ref) 0l))
+
+           (doc push-front "Push a value onto the front, returning a new deque.")
+           (sig push-front (Fn [%value-type (Ref %name q)] %name))
+           (defn push-front [value dq-ref]
+             (let [front2 (%list-prepend value (%deque-front dq-ref))
+                   count2 (Long.inc @(%deque-count dq-ref))]
+               (%deque-init front2 @(%deque-rear dq-ref) count2)))
+
+           (doc push-back "Push a value onto the back, returning a new deque.")
+           (sig push-back (Fn [%value-type (Ref %name q)] %name))
+           (defn push-back [value dq-ref]
+             (let [rear2 (%list-prepend value (%deque-rear dq-ref))
+                   count2 (Long.inc @(%deque-count dq-ref))]
+               (%deque-init @(%deque-front dq-ref) rear2 count2)))
+
+           (doc peek-front "Read the front value, if any.")
+           (sig peek-front (Fn [(Ref %name q)] (Maybe %value-type)))
+           (defn peek-front [dq-ref]
+             (if (%deque-empty-pred dq-ref)
+               (Maybe.Nothing)
+               (if (%list-empty? (%deque-front dq-ref))
+                 (let [front2 (reverse-list (%deque-rear dq-ref))]
+                   (%list-head &front2))
+                 (%list-head (%deque-front dq-ref)))))
+
+           (doc peek-back "Read the back value, if any.")
+           (sig peek-back (Fn [(Ref %name q)] (Maybe %value-type)))
+           (defn peek-back [dq-ref]
+             (if (%deque-empty-pred dq-ref)
+               (Maybe.Nothing)
+               (if (%list-empty? (%deque-rear dq-ref))
+                 (let [rear2 (reverse-list (%deque-front dq-ref))]
+                   (%list-head &rear2))
+                 (%list-head (%deque-rear dq-ref)))))
+
+           (doc pop-front "Pop the front value, returning `(Maybe (Pair value next-deque))`.")
+           (sig pop-front (Fn [(Ref %name q)] (Maybe (Pair %value-type %name))))
+           (defn pop-front [dq-ref]
+             (if (%deque-empty-pred dq-ref)
+               (Maybe.Nothing)
+               (if (%list-empty? (%deque-front dq-ref))
+                 (let [front2 (reverse-list (%deque-rear dq-ref))
+                       rear0 (%list-empty)
+                       norm (%deque-init front2 rear0 @(%deque-count dq-ref))]
+                   (pop-front &norm))
+                 (match (%list-head (%deque-front dq-ref))
+                   (Maybe.Nothing) (Maybe.Nothing)
+                   (Maybe.Just value)
+                     (let [count2 (Long.dec @(%deque-count dq-ref))]
+                       (match (%list-tail (%deque-front dq-ref))
+                         (Maybe.Just next-front)
+                           (Maybe.Just
+                             (Pair.init
+                               value
+                               (%deque-init next-front @(%deque-rear dq-ref) count2)))
+                         (Maybe.Nothing)
+                           (let [front0 (%list-empty)]
+                             (Maybe.Just
+                               (Pair.init
+                                 value
+                                 (%deque-init front0 @(%deque-rear dq-ref) count2))))))))))
+
+           (doc pop-back "Pop the back value, returning `(Maybe (Pair value next-deque))`.")
+           (sig pop-back (Fn [(Ref %name q)] (Maybe (Pair %value-type %name))))
+           (defn pop-back [dq-ref]
+             (if (%deque-empty-pred dq-ref)
+               (Maybe.Nothing)
+               (if (%list-empty? (%deque-rear dq-ref))
+                 (let [rear2 (reverse-list (%deque-front dq-ref))
+                       front0 (%list-empty)
+                       norm (%deque-init front0 rear2 @(%deque-count dq-ref))]
+                   (pop-back &norm))
+                 (match (%list-head (%deque-rear dq-ref))
+                   (Maybe.Nothing) (Maybe.Nothing)
+                   (Maybe.Just value)
+                     (let [count2 (Long.dec @(%deque-count dq-ref))]
+                       (match (%list-tail (%deque-rear dq-ref))
+                         (Maybe.Just next-rear)
+                           (Maybe.Just
+                             (Pair.init
+                               value
+                               (%deque-init @(%deque-front dq-ref) next-rear count2)))
+                         (Maybe.Nothing)
+                           (let [rear0 (%list-empty)]
+                             (Maybe.Just
+                               (Pair.init
+                                 value
+                                 (%deque-init @(%deque-front dq-ref) rear0 count2))))))))))
+
+           (doc ptr-eq "Pointer identity check for deque front/rear list roots plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%deque-count a-ref) @(%deque-count b-ref))
+                  (%list-ptr-eq (%deque-front a-ref) (%deque-front b-ref))
+                  (%list-ptr-eq (%deque-rear a-ref) (%deque-rear b-ref))))
+
+           (doc reduce "Reduce the deque front-to-back with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init dq-ref]
+             (let [after-front (%list-reduce f init (%deque-front dq-ref))
+                   rear-rev (reverse-list (%deque-rear dq-ref))]
+               (%list-reduce f after-front &rear-rev)))
+
+           (doc each "Invoke a side-effecting function on each element front-to-back.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f dq-ref]
+             (do
+               (%list-each f (%deque-front dq-ref))
+               (let [rear-rev (reverse-list (%deque-rear dq-ref))]
+                 (%list-each f &rear-rev))))
+
+           (doc to-array "Copy all values into an `Array` front-to-back.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [dq-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] dq-ref))
+
+           (doc = "Structural equality: same length and pairwise equal front-to-back sequence.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%deque-count a-ref) @(%deque-count b-ref))
+               false
+               (let [aa (to-array a-ref)
+                     ab (to-array b-ref)]
+                 (= &aa &ab))))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for a deque.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [dq-ref]
+             (fmt "(PersistentDeque length=%ld)" (length dq-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [dq-ref]
+             (str dq-ref)))))))
+
+(defmodule Persistent
+  (doc define-ord-map "Generate a persistent ordered map backed by a binary search tree.
+
+Example:
+
+  (Persistent.define-ord-map IntMap Int String)
+
+This generates:
+- type `IntMap`
+- module `IntMap` with ordered-map operations
+- internal node and node-`Rc` types for structural sharing")
+  (defmacro define-ord-map [name key-type value-type]
+    (let [node-type (Symbol.concat [name 'Node])
+          node-rc-type (Symbol.concat [name 'NodeRc])
+          map-init (Symbol.prefix name 'init)
+          map-root (Symbol.prefix name 'root)
+          map-count (Symbol.prefix name 'count)
+          node-init (Symbol.prefix node-type 'init)
+          node-key (Symbol.prefix node-type 'key)
+          node-value (Symbol.prefix node-type 'value)
+          node-left (Symbol.prefix node-type 'left)
+          node-right (Symbol.prefix node-type 'right)
+          node-rc-new (Symbol.prefix node-rc-type 'new)
+          node-rc-get (Symbol.prefix node-rc-type 'get)
+          node-rc-ptr-eq (Symbol.prefix node-rc-type 'ptr-eq)
+          node-rc-str (Symbol.prefix node-rc-type 'str)
+          node-rc-ref-type (Symbol.concat [node-rc-type 'Ref])
+          node-rc-ref-str (Symbol.prefix node-rc-ref-type 'str)
+          node-rc-ref-prn (Symbol.prefix node-rc-ref-type 'prn)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (register-type %node-rc-type "void*")
+         (deftype %node-type [
+                   key %key-type
+                   value %value-type
+                   left (Maybe %node-rc-type)
+                   right (Maybe %node-rc-type)])
+         (hidden %node-type)
+
+         (Rc.define %node-rc-type %node-type)
+
+         (defmodule %node-rc-ref-type
+           (sig str (Fn [(Ref %node-rc-type q)] String))
+           (defn str [rc-ref] (%node-rc-str rc-ref))
+           (implements str %node-rc-ref-str)
+           (sig prn (Fn [(Ref %node-rc-type q)] String))
+           (defn prn [rc-ref] (%node-rc-str rc-ref))
+           (implements prn %node-rc-ref-prn))
+
+         (deftype %name [root (Maybe %node-rc-type) count Long])
+
+         (defmodule %name
+           (private get-node)
+           (hidden get-node)
+           (sig get-node (Fn [%key-type (Ref (Maybe %node-rc-type) q)] (Maybe %value-type)))
+           (defn get-node [key root-ref]
+             (let-do [current @root-ref
+                      result (Maybe.Nothing)
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just node-rc)
+                     (let [node (%node-rc-get node-rc)
+                           k @(%node-key &node)]
+                       (if (< key k)
+                         (set! current @(%node-left &node))
+                         (if (> key k)
+                           (set! current @(%node-right &node))
+                           (do
+                             (set! result (Maybe.Just @(%node-value &node)))
+                             (set! keep-going false)))))))
+               result))
+
+           (private insert-node)
+           (hidden insert-node)
+           (sig insert-node (Fn [%key-type %value-type (Ref (Maybe %node-rc-type) q)] (Pair (Maybe %node-rc-type) Bool)))
+           (defn insert-node [key value root-ref]
+             (let-do [current @root-ref
+                      path (the (Array (Pair %node-rc-type Bool)) [])
+                      new-child (Maybe.Nothing)
+                      inserted false
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing)
+                     (do
+                       (set! new-child (Maybe.Just (%node-rc-new (%node-init @&key @&value (Maybe.Nothing) (Maybe.Nothing)))))
+                       (set! inserted true)
+                       (set! keep-going false))
+                   (Maybe.Just node-rc)
+                     (let [node (%node-rc-get node-rc)
+                           k @(%node-key &node)]
+                       (if (< key k)
+                         (do
+                           (set! path (Array.push-back path (Pair.init @node-rc true)))
+                           (set! current @(%node-left &node)))
+                         (if (> key k)
+                           (do
+                             (set! path (Array.push-back path (Pair.init @node-rc false)))
+                             (set! current @(%node-right &node)))
+                           (do
+                             (set! new-child (Maybe.Just (%node-rc-new (%node-init @(%node-key &node) @&value @(%node-left &node) @(%node-right &node)))))
+                             (set! keep-going false)))))))
+               (let-do [i (Int.dec (Array.length &path))]
+                 (while-do (>= i 0)
+                   (let [frame (Array.unsafe-nth &path i)
+                         parent-node (%node-rc-get (Pair.a frame))
+                         went-left @(Pair.b frame)
+                         rebuilt (if went-left
+                                   (%node-init @(%node-key &parent-node) @(%node-value &parent-node) @&new-child @(%node-right &parent-node))
+                                   (%node-init @(%node-key &parent-node) @(%node-value &parent-node) @(%node-left &parent-node) @&new-child))]
+                     (do
+                       (set! new-child (Maybe.Just (%node-rc-new rebuilt)))
+                       (set! i (Int.dec i))))))
+               (Pair.init new-child inserted)))
+
+           (private extract-min)
+           (hidden extract-min)
+           (sig extract-min (Fn [(Ref %node-rc-type q)] (Pair %node-type (Maybe %node-rc-type))))
+           (defn extract-min [node-rc-ref]
+             (let-do [current-rc @node-rc-ref
+                      path (the (Array %node-rc-type) [])
+                      new-left (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (match-ref (%node-left &node)
+                     (Maybe.Nothing)
+                       (do
+                         (set! new-left @(%node-right &node))
+                         (set! keep-going false))
+                     (Maybe.Just left-rc)
+                       (do
+                         (set! path (Array.push-back path @&current-rc))
+                         (set! current-rc @left-rc)))))
+               (let-do [j (Int.dec (Array.length &path))]
+                 (while-do (>= j 0)
+                   (let [parent-rc (Array.unsafe-nth &path j)
+                         parent-node (%node-rc-get parent-rc)
+                         rebuilt (%node-init
+                                   @(%node-key &parent-node)
+                                   @(%node-value &parent-node)
+                                   @&new-left
+                                   @(%node-right &parent-node))]
+                     (do
+                       (set! new-left (Maybe.Just (%node-rc-new rebuilt)))
+                       (set! j (Int.dec j))))))
+               (Pair.init (%node-rc-get &current-rc) new-left)))
+
+           (private remove-node)
+           (hidden remove-node)
+           (sig remove-node (Fn [%key-type (Ref (Maybe %node-rc-type) q)] (Pair (Maybe %node-rc-type) Bool)))
+           (defn remove-node [key root-ref]
+             (let-do [current @root-ref
+                      path (the (Array (Pair %node-rc-type Bool)) [])
+                      new-subtree (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      removed false
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &current
+                   (Maybe.Nothing) (set! keep-going false)
+                   (Maybe.Just node-rc)
+                     (let [node (%node-rc-get node-rc)
+                           k @(%node-key &node)]
+                       (if (< @&key k)
+                         (do
+                           (set! path (Array.push-back path (Pair.init @node-rc true)))
+                           (set! current @(%node-left &node)))
+                         (if (> @&key k)
+                           (do
+                             (set! path (Array.push-back path (Pair.init @node-rc false)))
+                             (set! current @(%node-right &node)))
+                           (do
+                             (match-ref (%node-left &node)
+                               (Maybe.Nothing)
+                                 (set! new-subtree @(%node-right &node))
+                               (Maybe.Just _)
+                                 (match-ref (%node-right &node)
+                                   (Maybe.Nothing)
+                                     (set! new-subtree @(%node-left &node))
+                                   (Maybe.Just right-rc)
+                                     (let [rec (extract-min right-rc)
+                                           min-node @(Pair.a &rec)
+                                           right2 @(Pair.b &rec)
+                                           node2 (%node-init
+                                                   @(%node-key &min-node)
+                                                   @(%node-value &min-node)
+                                                   @(%node-left &node)
+                                                   right2)]
+                                       (set! new-subtree (Maybe.Just (%node-rc-new node2))))))
+                             (set! removed true)
+                             (set! keep-going false)))))))
+               (if (not removed)
+                 (Pair.init @root-ref false)
+                 (let-do [j (Int.dec (Array.length &path))]
+                   (while-do (>= j 0)
+                     (let [frame (Array.unsafe-nth &path j)
+                           parent-rc (Pair.a frame)
+                           went-left @(Pair.b frame)
+                           parent-node (%node-rc-get parent-rc)
+                           rebuilt (if went-left
+                                     (%node-init
+                                       @(%node-key &parent-node)
+                                       @(%node-value &parent-node)
+                                       @&new-subtree
+                                       @(%node-right &parent-node))
+                                     (%node-init
+                                       @(%node-key &parent-node)
+                                       @(%node-value &parent-node)
+                                       @(%node-left &parent-node)
+                                       @&new-subtree))]
+                       (do
+                         (set! new-subtree (Maybe.Just (%node-rc-new rebuilt)))
+                         (set! j (Int.dec j)))))
+                   (Pair.init new-subtree true)))))
+
+           (private min-node)
+           (hidden min-node)
+           (sig min-node (Fn [(Ref %node-rc-type q)] %node-type))
+           (defn min-node [node-rc-ref]
+             (let-do [current-rc @node-rc-ref
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (match-ref (%node-left &node)
+                     (Maybe.Nothing) (set! keep-going false)
+                     (Maybe.Just left-rc) (set! current-rc @left-rc))))
+               (%node-rc-get &current-rc)))
+
+           (private max-node)
+           (hidden max-node)
+           (sig max-node (Fn [(Ref %node-rc-type q)] %node-type))
+           (defn max-node [node-rc-ref]
+             (let-do [current-rc @node-rc-ref
+                      keep-going true]
+               (while-do keep-going
+                 (let [node (%node-rc-get &current-rc)]
+                   (match-ref (%node-right &node)
+                     (Maybe.Nothing) (set! keep-going false)
+                     (Maybe.Just right-rc) (set! current-rc @right-rc))))
+               (%node-rc-get &current-rc)))
+
+           (doc empty "Create an empty ordered map.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%map-init (Maybe.Nothing) 0l))
+
+           (doc singleton "Create an ordered map with one key/value pair.")
+           (sig singleton (Fn [%key-type %value-type] %name))
+           (defn singleton [key value]
+             (let [node (%node-init key value (Maybe.Nothing) (Maybe.Nothing))]
+               (%map-init (Maybe.Just (%node-rc-new node)) 1l)))
+
+           (doc length "Return number of stored key/value pairs.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [map-ref]
+             @(%map-count map-ref))
+
+           (doc empty? "Returns `true` when map contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [map-ref]
+             (= (length map-ref) 0l))
+
+           (doc insert "Insert or replace value for key, returning a new map.")
+           (sig insert (Fn [%key-type %value-type (Ref %name q)] %name))
+           (defn insert [key value map-ref]
+             (let [rec (insert-node key value (%map-root map-ref))
+                   root2 @(Pair.a &rec)
+                   inserted? @(Pair.b &rec)
+                   count2 (if inserted?
+                            (Long.inc @(%map-count map-ref))
+                            @(%map-count map-ref))]
+               (%map-init root2 count2)))
+
+           (doc get "Lookup key, returning `Maybe` value.")
+           (sig get (Fn [%key-type (Ref %name q)] (Maybe %value-type)))
+           (defn get [key map-ref]
+             (get-node key (%map-root map-ref)))
+
+           (doc contains? "Returns `true` when key exists in map.")
+           (sig contains? (Fn [%key-type (Ref %name q)] Bool))
+           (defn contains? [key map-ref]
+             (match (get key map-ref)
+               (Maybe.Nothing) false
+               (Maybe.Just _) true))
+
+           (doc remove "Remove key (if present), returning a new map.")
+           (sig remove (Fn [%key-type (Ref %name q)] %name))
+           (defn remove [key map-ref]
+             (let [rec (remove-node key (%map-root map-ref))
+                   root2 @(Pair.a &rec)
+                   removed? @(Pair.b &rec)
+                   count2 (if removed?
+                            (Long.dec @(%map-count map-ref))
+                            @(%map-count map-ref))]
+               (%map-init root2 count2)))
+
+           (doc min-key "Return minimum key, if any.")
+           (sig min-key (Fn [(Ref %name q)] (Maybe %key-type)))
+           (defn min-key [map-ref]
+             (match @(%map-root map-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just root-rc)
+                 (let [node (min-node &root-rc)]
+                   (Maybe.Just @(%node-key &node)))))
+
+           (doc max-key "Return maximum key, if any.")
+           (sig max-key (Fn [(Ref %name q)] (Maybe %key-type)))
+           (defn max-key [map-ref]
+             (match @(%map-root map-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just root-rc)
+                 (let [node (max-node &root-rc)]
+                   (Maybe.Just @(%node-key &node)))))
+
+           (doc ptr-eq "Pointer identity check for root node plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%map-count a-ref) @(%map-count b-ref))
+                  (match @(%map-root a-ref)
+                    (Maybe.Nothing)
+                      (match @(%map-root b-ref)
+                        (Maybe.Nothing) true
+                        (Maybe.Just _) false)
+                    (Maybe.Just a-root)
+                      (match @(%map-root b-ref)
+                        (Maybe.Just b-root) (%node-rc-ptr-eq &a-root &b-root)
+                        (Maybe.Nothing) false))))
+
+           (doc reduce "Reduce in ascending key order with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a (Pair %key-type %value-type)] a) q) a (Ref %name r)] a))
+           (defn reduce [f init map-ref]
+             (let-do [stack (the (Array %node-rc-type) [])
+                      current @(%map-root map-ref)
+                      acc init
+                      keep-going true]
+               (while-do keep-going
+                 (let-do [descending true]
+                   (while-do descending
+                     (match-ref &current
+                       (Maybe.Nothing) (set! descending false)
+                       (Maybe.Just rc)
+                         (do
+                           (set! stack (Array.push-back stack @rc))
+                           (let [node (%node-rc-get rc)]
+                             (set! current @(%node-left &node)))))))
+                 (if (= (Array.length &stack) 0)
+                   (set! keep-going false)
+                   (let [top-rc (Array.pop-back! &stack)
+                         node (%node-rc-get &top-rc)
+                         pair (Pair.init @(%node-key &node) @(%node-value &node))]
+                     (do
+                       (set! acc (~f acc pair))
+                       (set! current @(%node-right &node))))))
+               acc))
+
+           (doc each "Invoke a side-effecting function on each `(Pair key value)` in ascending key order.")
+           (sig each (Fn [(Ref (Fn [(Pair %key-type %value-type)] ()) q) (Ref %name r)] ()))
+           (defn each [f map-ref]
+             (let-do [stack (the (Array %node-rc-type) [])
+                      current @(%map-root map-ref)
+                      keep-going true]
+               (while-do keep-going
+                 (let-do [descending true]
+                   (while-do descending
+                     (match-ref &current
+                       (Maybe.Nothing) (set! descending false)
+                       (Maybe.Just rc)
+                         (do
+                           (set! stack (Array.push-back stack @rc))
+                           (let [node (%node-rc-get rc)]
+                             (set! current @(%node-left &node)))))))
+                 (if (= (Array.length &stack) 0)
+                   (set! keep-going false)
+                   (let [top-rc (Array.pop-back! &stack)
+                         node (%node-rc-get &top-rc)]
+                     (do
+                       (~f (Pair.init @(%node-key &node) @(%node-value &node)))
+                       (set! current @(%node-right &node))))))))
+
+           (doc to-array "Copy all `(Pair key value)` entries into an `Array` in ascending key order.")
+           (sig to-array (Fn [(Ref %name q)] (Array (Pair %key-type %value-type))))
+           (defn to-array [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc p)) [] map-ref))
+
+           (doc keys "Collect keys into an `Array` in ascending order.")
+           (sig keys (Fn [(Ref %name q)] (Array %key-type)))
+           (defn keys [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc @(Pair.a &p))) [] map-ref))
+
+           (doc values "Collect values into an `Array` in ascending key order.")
+           (sig values (Fn [(Ref %name q)] (Array %value-type)))
+           (defn values [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc @(Pair.b &p))) [] map-ref))
+
+           (doc = "Structural equality: same size and pairwise equal entries in ascending key order.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%map-count a-ref) @(%map-count b-ref))
+               false
+               (let [aa (to-array a-ref)
+                     ab (to-array b-ref)]
+                 (= &aa &ab))))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for an ordered map.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [map-ref]
+             (fmt "(PersistentOrdMap size=%ld)" (length map-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [map-ref]
+             (str map-ref)))))))
+
+(defmodule Persistent
+  (doc define-ord-set "Generate a persistent ordered set backed by an ordered map.
+
+Example:
+
+  (Persistent.define-ord-set IntSet Int)")
+  (defmacro define-ord-set [name value-type]
+    (let [map-type (Symbol.concat [name 'Map])
+          set-init (Symbol.prefix name 'init)
+          set-map (Symbol.prefix name 'impl)
+          map-empty (Symbol.prefix map-type 'empty)
+          map-singleton (Symbol.prefix map-type 'singleton)
+          map-length (Symbol.prefix map-type 'length)
+          map-empty-pred (Symbol.prefix map-type 'empty?)
+          map-insert (Symbol.prefix map-type 'insert)
+          map-remove (Symbol.prefix map-type 'remove)
+          map-contains (Symbol.prefix map-type 'contains?)
+          map-ptr-eq (Symbol.prefix map-type 'ptr-eq)
+          map-reduce (Symbol.prefix map-type 'reduce)
+          map-each (Symbol.prefix map-type 'each)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-ord-map %map-type %value-type Bool)
+         (deftype %name [impl %map-type])
+
+         (defmodule %name
+           (doc empty "Create an empty ordered set.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%set-init (%map-empty)))
+
+           (doc singleton "Create a singleton ordered set.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (%set-init (%map-singleton value true)))
+
+           (doc length "Return number of stored set entries.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [set-ref]
+             (%map-length (%set-map set-ref)))
+
+           (doc empty? "Returns `true` when set contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [set-ref]
+             (%map-empty-pred (%set-map set-ref)))
+
+           (doc insert "Insert value, returning a new set.")
+           (sig insert (Fn [%value-type (Ref %name q)] %name))
+           (defn insert [value set-ref]
+             (%set-init (%map-insert value true (%set-map set-ref))))
+
+           (doc remove "Remove value (if present), returning a new set.")
+           (sig remove (Fn [%value-type (Ref %name q)] %name))
+           (defn remove [value set-ref]
+             (%set-init (%map-remove value (%set-map set-ref))))
+
+           (doc contains? "Returns `true` when value exists in set.")
+           (sig contains? (Fn [%value-type (Ref %name q)] Bool))
+           (defn contains? [value set-ref]
+             (%map-contains value (%set-map set-ref)))
+
+           (doc ptr-eq "Pointer identity check for underlying map.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (%map-ptr-eq (%set-map a-ref) (%set-map b-ref)))
+
+           (doc reduce "Reduce in ascending order with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init set-ref]
+             (%map-reduce &(fn [acc p] (~f acc @(Pair.a &p))) init (%set-map set-ref)))
+
+           (doc each "Invoke a side-effecting function on each element in ascending order.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f set-ref]
+             (%map-each &(fn [p] (~f @(Pair.a &p))) (%set-map set-ref)))
+
+           (doc to-array "Copy all values into an `Array` in ascending order.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [set-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] set-ref))
+
+           (doc = "Structural equality: same size and equal members in ascending order.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= (length a-ref) (length b-ref))
+               false
+               (let [aa (to-array a-ref)
+                     ab (to-array b-ref)]
+                 (= &aa &ab))))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for an ordered set.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [set-ref]
+             (fmt "(PersistentOrdSet size=%ld)" (length set-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [set-ref]
+             (str set-ref)))))))
+
+(defmodule Persistent
+  (doc define-heap "Generate a persistent min-heap (skew heap).
+
+Example:
+
+  (Persistent.define-heap IntHeap Int)")
+  (defmacro define-heap [name value-type]
+    (let [node-type (Symbol.concat [name 'Node])
+          node-rc-type (Symbol.concat [name 'NodeRc])
+          heap-init (Symbol.prefix name 'init)
+          heap-root (Symbol.prefix name 'root)
+          heap-count (Symbol.prefix name 'count)
+          node-init (Symbol.prefix node-type 'init)
+          node-value (Symbol.prefix node-type 'value)
+          node-left (Symbol.prefix node-type 'left)
+          node-right (Symbol.prefix node-type 'right)
+          node-rc-new (Symbol.prefix node-rc-type 'new)
+          node-rc-get (Symbol.prefix node-rc-type 'get)
+          node-rc-ptr-eq (Symbol.prefix node-rc-type 'ptr-eq)
+          node-rc-str (Symbol.prefix node-rc-type 'str)
+          node-rc-ref-type (Symbol.concat [node-rc-type 'Ref])
+          node-rc-ref-str (Symbol.prefix node-rc-ref-type 'str)
+          node-rc-ref-prn (Symbol.prefix node-rc-ref-type 'prn)]
+      `(do
+         (register-type %node-rc-type "void*")
+         (deftype %node-type [
+                   value %value-type
+                   left (Maybe %node-rc-type)
+                   right (Maybe %node-rc-type)])
+         (hidden %node-type)
+
+         (Rc.define %node-rc-type %node-type)
+
+         (defmodule %node-rc-ref-type
+           (sig str (Fn [(Ref %node-rc-type q)] String))
+           (defn str [rc-ref] (%node-rc-str rc-ref))
+           (implements str %node-rc-ref-str)
+           (sig prn (Fn [(Ref %node-rc-type q)] String))
+           (defn prn [rc-ref] (%node-rc-str rc-ref))
+           (implements prn %node-rc-ref-prn))
+
+         (deftype %name [root (Maybe %node-rc-type) count Long])
+
+         (defmodule %name
+           (private merge-roots)
+           (hidden merge-roots)
+           (sig merge-roots (Fn [(Ref (Maybe %node-rc-type) q) (Ref (Maybe %node-rc-type) r)] (Maybe %node-rc-type)))
+           (defn merge-roots [a-ref b-ref]
+             (let-do [a @a-ref
+                      b @b-ref
+                      path (the (Array (Pair %value-type (Maybe %node-rc-type))) [])
+                      result (the (Maybe %node-rc-type) (Maybe.Nothing))
+                      keep-going true]
+               (while-do keep-going
+                 (match-ref &a
+                   (Maybe.Nothing)
+                     (do
+                       (set! result @&b)
+                       (set! keep-going false))
+                   (Maybe.Just a-rc)
+                     (match-ref &b
+                       (Maybe.Nothing)
+                         (do
+                           (set! result @&a)
+                           (set! keep-going false))
+                       (Maybe.Just b-rc)
+                         (let [a-node (%node-rc-get a-rc)
+                               b-node (%node-rc-get b-rc)]
+                           (if (< @(%node-value &b-node) @(%node-value &a-node))
+                             (let [tmp @&a]
+                               (do
+                                 (set! a @&b)
+                                 (set! b tmp)))
+                             (do
+                               (set! path (Array.push-back path (Pair.init @(%node-value &a-node) @(%node-left &a-node))))
+                               (set! a @(%node-right &a-node))))))))
+               (let-do [j (Int.dec (Array.length &path))]
+                 (while-do (>= j 0)
+                   (let [frame (Array.unsafe-nth &path j)
+                         v (Pair.a frame)
+                         saved-left (Pair.b frame)
+                         new-node (%node-init @v @&result @saved-left)]
+                     (do
+                       (set! result (Maybe.Just (%node-rc-new new-node)))
+                       (set! j (Int.dec j))))))
+               result))
+
+           (doc empty "Create an empty persistent heap.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%heap-init (Maybe.Nothing) 0l))
+
+           (doc singleton "Create a singleton heap.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (let [node (%node-init value (Maybe.Nothing) (Maybe.Nothing))]
+               (%heap-init (Maybe.Just (%node-rc-new node)) 1l)))
+
+           (doc length "Return number of stored heap entries.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [heap-ref]
+             @(%heap-count heap-ref))
+
+           (doc empty? "Returns `true` when heap contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [heap-ref]
+             (= (length heap-ref) 0l))
+
+           (doc merge "Merge two heaps, returning a new heap.")
+           (sig merge (Fn [(Ref %name q) (Ref %name r)] %name))
+           (defn merge [a-ref b-ref]
+             (let [root2 (merge-roots (%heap-root a-ref) (%heap-root b-ref))
+                   count2 (+ @(%heap-count a-ref) @(%heap-count b-ref))]
+               (%heap-init root2 count2)))
+
+           (doc insert "Insert value into heap, returning a new heap.")
+           (sig insert (Fn [%value-type (Ref %name q)] %name))
+           (defn insert [value heap-ref]
+             (let [node (%node-init value (Maybe.Nothing) (Maybe.Nothing))
+                   singleton-root (Maybe.Just (%node-rc-new node))
+                   root2 (merge-roots (%heap-root heap-ref) &singleton-root)]
+               (%heap-init root2 (Long.inc @(%heap-count heap-ref)))))
+
+           (doc peek "Read minimum value, if any.")
+           (sig peek (Fn [(Ref %name q)] (Maybe %value-type)))
+           (defn peek [heap-ref]
+             (match @(%heap-root heap-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just root-rc)
+                 (let [node (%node-rc-get &root-rc)]
+                   (Maybe.Just @(%node-value &node)))))
+
+           (doc pop "Pop minimum value, returning `(Maybe (Pair value next-heap))`.")
+           (sig pop (Fn [(Ref %name q)] (Maybe (Pair %value-type %name))))
+           (defn pop [heap-ref]
+             (match @(%heap-root heap-ref)
+               (Maybe.Nothing) (Maybe.Nothing)
+               (Maybe.Just root-rc)
+                 (let [node (%node-rc-get &root-rc)
+                       root2 (merge-roots (%node-left &node) (%node-right &node))
+                       heap2 (%heap-init root2 (Long.dec @(%heap-count heap-ref)))]
+                   (Maybe.Just (Pair.init @(%node-value &node) heap2)))))
+
+           (doc ptr-eq "Pointer identity check for heap root plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%heap-count a-ref) @(%heap-count b-ref))
+                  (match @(%heap-root a-ref)
+                    (Maybe.Nothing)
+                      (match @(%heap-root b-ref)
+                        (Maybe.Nothing) true
+                        (Maybe.Just _) false)
+                    (Maybe.Just a-root)
+                      (match @(%heap-root b-ref)
+                        (Maybe.Just b-root) (%node-rc-ptr-eq &a-root &b-root)
+                        (Maybe.Nothing) false))))
+
+           (doc reduce "Reduce all heap values in structural (unordered) DFS with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init heap-ref]
+             (let-do [stack (the (Array %node-rc-type) [])
+                      acc init]
+               (match-ref (%heap-root heap-ref)
+                 (Maybe.Nothing) ()
+                 (Maybe.Just root-rc)
+                   (set! stack (Array.push-back stack @root-rc)))
+               (while-do (> (Array.length &stack) 0)
+                 (let [top-rc (Array.pop-back! &stack)
+                       node (%node-rc-get &top-rc)]
+                   (do
+                     (set! acc (~f acc @(%node-value &node)))
+                     (match-ref (%node-left &node)
+                       (Maybe.Nothing) ()
+                       (Maybe.Just l) (set! stack (Array.push-back stack @l)))
+                     (match-ref (%node-right &node)
+                       (Maybe.Nothing) ()
+                       (Maybe.Just r) (set! stack (Array.push-back stack @r))))))
+               acc))
+
+           (doc each "Invoke a side-effecting function on every heap value (unordered).")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f heap-ref]
+             (let-do [stack (the (Array %node-rc-type) [])]
+               (match-ref (%heap-root heap-ref)
+                 (Maybe.Nothing) ()
+                 (Maybe.Just root-rc)
+                   (set! stack (Array.push-back stack @root-rc)))
+               (while-do (> (Array.length &stack) 0)
+                 (let [top-rc (Array.pop-back! &stack)
+                       node (%node-rc-get &top-rc)]
+                   (do
+                     (~f @(%node-value &node))
+                     (match-ref (%node-left &node)
+                       (Maybe.Nothing) ()
+                       (Maybe.Just l) (set! stack (Array.push-back stack @l)))
+                     (match-ref (%node-right &node)
+                       (Maybe.Nothing) ()
+                       (Maybe.Just r) (set! stack (Array.push-back stack @r))))))))
+
+           (doc to-array "Copy all heap values into an `Array` in structural (unordered) order.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [heap-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] heap-ref))
+
+           (doc str "Diagnostic formatting for a heap.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [heap-ref]
+             (fmt "(PersistentHeap size=%ld)" (length heap-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [heap-ref]
+             (str heap-ref)))))))
+
+(defmodule Persistent
+  (doc define-hash-map "Generate a persistent hash map using trie-indexed hash buckets.
+
+Example:
+
+  (Persistent.define-hash-map StrIntMap String Int)")
+  (defmacro define-hash-map [name key-type value-type]
+    (let [trie-type (Symbol.concat [name 'Trie])
+          map-init (Symbol.prefix name 'init)
+          map-trie (Symbol.prefix name 'trie)
+          map-count (Symbol.prefix name 'count)
+          trie-empty (Symbol.prefix trie-type 'empty)
+          trie-insert (Symbol.prefix trie-type 'insert)
+          trie-get (Symbol.prefix trie-type 'get)
+          trie-remove (Symbol.prefix trie-type 'remove)
+          trie-ptr-eq (Symbol.prefix trie-type 'ptr-eq)
+          trie-reduce-values (Symbol.prefix trie-type 'reduce-values)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-trie %trie-type Int (Array (Pair %key-type %value-type)))
+         (deftype %name [trie %trie-type count Long])
+
+         (defmodule %name
+           (private hash-path)
+           (hidden hash-path)
+           (sig hash-path (Fn [(Ref %key-type q)] (Array Int)))
+           (defn hash-path [key-ref]
+             (let-do [n (Int.bit-and (hash key-ref) 2147483647)
+                      out (the (Array Int) [])]
+               (for [i 0 8]
+                 (do
+                   (set! out (Array.push-back out (Int.positive-mod n 16)))
+                   (set! n (/ n 16))))
+               out))
+
+           (private bucket-find)
+           (hidden bucket-find)
+           (sig bucket-find (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)] Int))
+           (defn bucket-find [bucket-ref key-ref]
+             (let-do [idx -1]
+               (for [i 0 (Array.length bucket-ref)]
+                 (when (= (Pair.a (Array.unsafe-nth bucket-ref i)) key-ref)
+                   (do
+                     (set! idx i)
+                     (break))))
+               idx))
+
+           (private bucket-get)
+           (hidden bucket-get)
+           (sig bucket-get (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)] (Maybe %value-type)))
+           (defn bucket-get [bucket-ref key-ref]
+             (let [idx (bucket-find bucket-ref key-ref)]
+               (if (<= 0 idx)
+                 (Maybe.Just @(Pair.b (Array.unsafe-nth bucket-ref idx)))
+                 (Maybe.Nothing))))
+
+           (private bucket-upsert)
+           (hidden bucket-upsert)
+           (sig bucket-upsert (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r) %value-type] (Pair (Array (Pair %key-type %value-type)) Bool)))
+           (defn bucket-upsert [bucket-ref key-ref value]
+             (let-do [out (the (Array (Pair %key-type %value-type)) [])
+                      found false]
+               (for [i 0 (Array.length bucket-ref)]
+                 (let [entry (Array.unsafe-nth bucket-ref i)]
+                   (if (= (Pair.a entry) key-ref)
+                     (do
+                       (set! out (Array.push-back out (Pair.init-from-refs key-ref &value)))
+                       (set! found true))
+                     (set! out (Array.push-back out @entry)))))
+               (if found
+                 (Pair.init out false)
+                 (Pair.init (Array.push-back out (Pair.init-from-refs key-ref &value)) true))))
+
+           (private bucket-remove)
+           (hidden bucket-remove)
+           (sig bucket-remove (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)] (Pair (Array (Pair %key-type %value-type)) Bool)))
+           (defn bucket-remove [bucket-ref key-ref]
+             (let-do [out (the (Array (Pair %key-type %value-type)) [])
+                      removed false]
+               (for [i 0 (Array.length bucket-ref)]
+                 (let [entry (Array.unsafe-nth bucket-ref i)]
+                   (if (= (Pair.a entry) key-ref)
+                     (set! removed true)
+                     (set! out (Array.push-back out @entry)))))
+               (Pair.init out removed)))
+
+           (doc empty "Create an empty hash map.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%map-init (%trie-empty) 0l))
+
+           (doc singleton "Create a hash map with one key/value pair.")
+           (sig singleton (Fn [%key-type %value-type] %name))
+           (defn singleton [key value]
+             (let [t0 (%trie-empty)
+                   path (hash-path &key)
+                   b0 (the (Array (Pair %key-type %value-type)) [])
+                   b1 (Array.push-back b0 (Pair.init key value))
+                   t1 (%trie-insert &path b1 &t0)]
+               (%map-init t1 1l)))
+
+           (doc length "Return number of stored key/value pairs.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [map-ref]
+             @(%map-count map-ref))
+
+           (doc empty? "Returns `true` when hash map contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [map-ref]
+             (= (length map-ref) 0l))
+
+           (doc get "Lookup key, returning `Maybe` value.")
+           (sig get (Fn [(Ref %key-type q) (Ref %name r)] (Maybe %value-type)))
+           (defn get [key-ref map-ref]
+             (let [path (hash-path key-ref)]
+               (match (%trie-get &path (%map-trie map-ref))
+                 (Maybe.Nothing) (Maybe.Nothing)
+                 (Maybe.Just bucket) (bucket-get &bucket key-ref))))
+
+           (doc contains? "Returns `true` when key exists in hash map.")
+           (sig contains? (Fn [(Ref %key-type q) (Ref %name r)] Bool))
+           (defn contains? [key-ref map-ref]
+             (match (get key-ref map-ref)
+               (Maybe.Nothing) false
+               (Maybe.Just _) true))
+
+           (doc insert "Insert or replace value for key, returning a new map.")
+           (sig insert (Fn [%key-type %value-type (Ref %name q)] %name))
+           (defn insert [key value map-ref]
+             (let [path (hash-path &key)
+                   old-bucket (match (%trie-get &path (%map-trie map-ref))
+                                (Maybe.Nothing) (the (Array (Pair %key-type %value-type)) [])
+                                (Maybe.Just bucket) bucket)
+                   rec (bucket-upsert &old-bucket &key value)
+                   bucket2 @(Pair.a &rec)
+                   inserted? @(Pair.b &rec)
+                   trie2 (%trie-insert &path bucket2 (%map-trie map-ref))
+                   count2 (if inserted?
+                            (Long.inc @(%map-count map-ref))
+                            @(%map-count map-ref))]
+               (%map-init trie2 count2)))
+
+           (doc remove "Remove key (if present), returning a new map.")
+           (sig remove (Fn [(Ref %key-type q) (Ref %name r)] %name))
+           (defn remove [key-ref map-ref]
+             (let [path (hash-path key-ref)]
+               (match (%trie-get &path (%map-trie map-ref))
+                 (Maybe.Nothing) @map-ref
+                 (Maybe.Just bucket)
+                   (let [rec (bucket-remove &bucket key-ref)
+                         bucket2 @(Pair.a &rec)
+                         removed? @(Pair.b &rec)]
+                     (if (not removed?)
+                       @map-ref
+                       (let [trie2 (if (= (Array.length &bucket2) 0)
+                                     (%trie-remove &path (%map-trie map-ref))
+                                     (%trie-insert &path bucket2 (%map-trie map-ref)))]
+                         (%map-init trie2 (Long.dec @(%map-count map-ref)))))))))
+
+           (doc ptr-eq "Pointer identity check for backing trie plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%map-count a-ref) @(%map-count b-ref))
+                  (%trie-ptr-eq (%map-trie a-ref) (%map-trie b-ref))))
+
+           (doc reduce "Reduce over `(Pair key value)` entries in unspecified order.")
+           (sig reduce (Fn [(Ref (Fn [a (Pair %key-type %value-type)] a) q) a (Ref %name r)] a))
+           (defn reduce [f init map-ref]
+             (%trie-reduce-values
+               &(fn [outer-acc bucket]
+                 (Array.reduce
+                   &(fn [acc pair-ref] (~f acc @pair-ref))
+                   outer-acc
+                   &bucket))
+               init
+               (%map-trie map-ref)))
+
+           (doc each "Invoke a side-effecting function on each `(Pair key value)` entry.")
+           (sig each (Fn [(Ref (Fn [(Pair %key-type %value-type)] ()) q) (Ref %name r)] ()))
+           (defn each [f map-ref]
+             (ignore
+               (%trie-reduce-values
+                 &(fn [acc bucket]
+                   (do
+                     (for [i 0 (Array.length &bucket)]
+                       (~f @(Array.unsafe-nth &bucket i)))
+                     acc))
+                 0l
+                 (%map-trie map-ref))))
+
+           (doc to-array "Copy all `(Pair key value)` entries into an `Array`.")
+           (sig to-array (Fn [(Ref %name q)] (Array (Pair %key-type %value-type))))
+           (defn to-array [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc p)) [] map-ref))
+
+           (doc keys "Collect all keys into an `Array`.")
+           (sig keys (Fn [(Ref %name q)] (Array %key-type)))
+           (defn keys [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc @(Pair.a &p))) [] map-ref))
+
+           (doc values "Collect all values into an `Array`.")
+           (sig values (Fn [(Ref %name q)] (Array %value-type)))
+           (defn values [map-ref]
+             (reduce &(fn [acc p] (Array.push-back acc @(Pair.b &p))) [] map-ref))
+
+           (doc = "Structural equality: same size and same set of `(key, value)` entries.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%map-count a-ref) @(%map-count b-ref))
+               false
+               (reduce &(fn [acc p]
+                 (and acc
+                      (match (get (Pair.a &p) b-ref)
+                        (Maybe.Nothing) false
+                        (Maybe.Just bv) (= bv @(Pair.b &p)))))
+                 true a-ref)))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for a hash map.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [map-ref]
+             (fmt "(PersistentHashMap size=%ld)" (length map-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [map-ref]
+             (str map-ref)))))))
+
+(defmodule Persistent
+  (doc define-hash-set "Generate a persistent hash set backed by a hash map.
+
+Example:
+
+  (Persistent.define-hash-set StrSet String)")
+  (defmacro define-hash-set [name value-type]
+    (let [map-type (Symbol.concat [name 'Map])
+          set-init (Symbol.prefix name 'init)
+          set-map (Symbol.prefix name 'impl)
+          map-empty (Symbol.prefix map-type 'empty)
+          map-singleton (Symbol.prefix map-type 'singleton)
+          map-length (Symbol.prefix map-type 'length)
+          map-empty-pred (Symbol.prefix map-type 'empty?)
+          map-insert (Symbol.prefix map-type 'insert)
+          map-remove (Symbol.prefix map-type 'remove)
+          map-contains (Symbol.prefix map-type 'contains?)
+          map-ptr-eq (Symbol.prefix map-type 'ptr-eq)
+          map-reduce (Symbol.prefix map-type 'reduce)
+          map-each (Symbol.prefix map-type 'each)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-hash-map %map-type %value-type Bool)
+         (deftype %name [impl %map-type])
+
+         (defmodule %name
+           (doc empty "Create an empty hash set.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%set-init (%map-empty)))
+
+           (doc singleton "Create a singleton hash set.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (%set-init (%map-singleton value true)))
+
+           (doc length "Return number of stored set entries.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [set-ref]
+             (%map-length (%set-map set-ref)))
+
+           (doc empty? "Returns `true` when set contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [set-ref]
+             (%map-empty-pred (%set-map set-ref)))
+
+           (doc insert "Insert value, returning a new set.")
+           (sig insert (Fn [%value-type (Ref %name q)] %name))
+           (defn insert [value set-ref]
+             (%set-init (%map-insert value true (%set-map set-ref))))
+
+           (doc remove "Remove value (if present), returning a new set.")
+           (sig remove (Fn [(Ref %value-type q) (Ref %name r)] %name))
+           (defn remove [value-ref set-ref]
+             (%set-init (%map-remove value-ref (%set-map set-ref))))
+
+           (doc contains? "Returns `true` when value exists in set.")
+           (sig contains? (Fn [(Ref %value-type q) (Ref %name r)] Bool))
+           (defn contains? [value-ref set-ref]
+             (%map-contains value-ref (%set-map set-ref)))
+
+           (doc ptr-eq "Pointer identity check for underlying map.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (%map-ptr-eq (%set-map a-ref) (%set-map b-ref)))
+
+           (doc reduce "Reduce over all values with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init set-ref]
+             (%map-reduce &(fn [acc p] (~f acc @(Pair.a &p))) init (%set-map set-ref)))
+
+           (doc each "Invoke a side-effecting function on every value.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f set-ref]
+             (%map-each &(fn [p] (~f @(Pair.a &p))) (%set-map set-ref)))
+
+           (doc to-array "Copy all values into an `Array`.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [set-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] set-ref))
+
+           (doc = "Structural equality: same size and same set of members.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= (length a-ref) (length b-ref))
+               false
+               (reduce &(fn [acc x]
+                 (and acc (contains? &x b-ref)))
+                 true a-ref)))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for a hash set.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [set-ref]
+             (fmt "(PersistentHashSet size=%ld)" (length set-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [set-ref]
+             (str set-ref)))))))
+
+(defmodule Persistent
+  (doc define-vector "Generate a persistent random-access vector indexed by `Int`.
+
+Example:
+
+  (Persistent.define-vector IntVec Int)")
+  (defmacro define-vector [name value-type]
+    (let [trie-type (Symbol.concat [name 'Trie])
+          vec-init (Symbol.prefix name 'init)
+          vec-trie (Symbol.prefix name 'trie)
+          vec-count (Symbol.prefix name 'count)
+          trie-empty (Symbol.prefix trie-type 'empty)
+          trie-insert (Symbol.prefix trie-type 'insert)
+          trie-get (Symbol.prefix trie-type 'get)
+          trie-remove (Symbol.prefix trie-type 'remove)
+          trie-ptr-eq (Symbol.prefix trie-type 'ptr-eq)
+          trie-reduce-values (Symbol.prefix trie-type 'reduce-values)
+          name-eq (Symbol.prefix name '=)]
+      `(do
+         (Persistent.define-trie %trie-type Int %value-type)
+         (deftype %name [trie %trie-type count Long])
+
+         (defmodule %name
+           (private index-path)
+           (hidden index-path)
+           (sig index-path (Fn [Int] (Array Int)))
+           (defn index-path [index]
+             (let-do [n index
+                      out (the (Array Int) [])]
+               (for [i 0 7]
+                 (do
+                   (set! out (Array.push-back out (Int.positive-mod n 32)))
+                   (set! n (/ n 32))))
+               out))
+
+           (private in-bounds?)
+           (hidden in-bounds?)
+           (sig in-bounds? (Fn [Int (Ref %name q)] Bool))
+           (defn in-bounds? [index vec-ref]
+             (and (>= index 0) (< index (Long.to-int @(%vec-count vec-ref)))))
+
+           (doc empty "Create an empty vector.")
+           (sig empty (Fn [] %name))
+           (defn empty []
+             (%vec-init (%trie-empty) 0l))
+
+           (doc singleton "Create a singleton vector.")
+           (sig singleton (Fn [%value-type] %name))
+           (defn singleton [value]
+             (let [t0 (%trie-empty)
+                   path (index-path 0)
+                   t1 (%trie-insert &path value &t0)]
+               (%vec-init t1 1l)))
+
+           (doc length "Return number of stored entries.")
+           (sig length (Fn [(Ref %name q)] Long))
+           (defn length [vec-ref]
+             @(%vec-count vec-ref))
+
+           (doc empty? "Returns `true` when vector contains no entries.")
+           (sig empty? (Fn [(Ref %name q)] Bool))
+           (defn empty? [vec-ref]
+             (= (length vec-ref) 0l))
+
+           (doc get "Lookup index, returning `Maybe` value.")
+           (sig get (Fn [Int (Ref %name q)] (Maybe %value-type)))
+           (defn get [index vec-ref]
+             (if (in-bounds? index vec-ref)
+               (let [path (index-path index)]
+                 (%trie-get &path (%vec-trie vec-ref)))
+               (Maybe.Nothing)))
+
+           (doc push-back "Append value, returning a new vector.")
+           (sig push-back (Fn [%value-type (Ref %name q)] %name))
+           (defn push-back [value vec-ref]
+             (let [index (Long.to-int @(%vec-count vec-ref))
+                   path (index-path index)
+                   trie2 (%trie-insert &path value (%vec-trie vec-ref))]
+               (%vec-init trie2 (Long.inc @(%vec-count vec-ref)))))
+
+           (doc assoc "Replace value at index, returning `(Maybe next-vector)`.")
+           (sig assoc (Fn [Int %value-type (Ref %name q)] (Maybe %name)))
+           (defn assoc [index value vec-ref]
+             (if (in-bounds? index vec-ref)
+               (let [path (index-path index)
+                     trie2 (%trie-insert &path value (%vec-trie vec-ref))]
+                 (Maybe.Just (%vec-init trie2 @(%vec-count vec-ref))))
+               (Maybe.Nothing)))
+
+           (doc pop-back "Pop last value, returning `(Maybe (Pair value next-vector))`.")
+           (sig pop-back (Fn [(Ref %name q)] (Maybe (Pair %value-type %name))))
+           (defn pop-back [vec-ref]
+             (if (= @(%vec-count vec-ref) 0l)
+               (Maybe.Nothing)
+               (let [last-index (Long.to-int (Long.dec @(%vec-count vec-ref)))
+                     path (index-path last-index)]
+                 (match (%trie-get &path (%vec-trie vec-ref))
+                   (Maybe.Nothing) (Maybe.Nothing)
+                   (Maybe.Just value)
+                     (let [trie2 (%trie-remove &path (%vec-trie vec-ref))
+                           vec2 (%vec-init trie2 (Long.dec @(%vec-count vec-ref)))]
+                       (Maybe.Just (Pair.init value vec2)))))))
+
+           (doc ptr-eq "Pointer identity check for backing trie plus count equality.")
+           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
+           (defn ptr-eq [a-ref b-ref]
+             (and (= @(%vec-count a-ref) @(%vec-count b-ref))
+                  (%trie-ptr-eq (%vec-trie a-ref) (%vec-trie b-ref))))
+
+           (doc reduce "Reduce the vector index 0 to count-1 with accumulator.")
+           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
+           (defn reduce [f init vec-ref]
+             (let-do [acc init
+                      n (Long.to-int @(%vec-count vec-ref))]
+               (for [i 0 n]
+                 (match (get i vec-ref)
+                   (Maybe.Nothing) ()
+                   (Maybe.Just v) (set! acc (~f acc v))))
+               acc))
+
+           (doc each "Invoke a side-effecting function on each value in index order.")
+           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
+           (defn each [f vec-ref]
+             (let-do [n (Long.to-int @(%vec-count vec-ref))]
+               (for [i 0 n]
+                 (match (get i vec-ref)
+                   (Maybe.Nothing) ()
+                   (Maybe.Just v) (~f v)))))
+
+           (doc to-array "Copy all values into an `Array` in index order.")
+           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
+           (defn to-array [vec-ref]
+             (reduce &(fn [acc x] (Array.push-back acc x)) [] vec-ref))
+
+           (doc = "Structural equality: same length and pairwise equal values.")
+           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
+           (defn = [a-ref b-ref]
+             (if (/= @(%vec-count a-ref) @(%vec-count b-ref))
+               false
+               (let [aa (to-array a-ref)
+                     ab (to-array b-ref)]
+                 (= &aa &ab))))
+           (implements = %name-eq)
+
+           (doc str "Diagnostic formatting for a vector.")
+           (sig str (Fn [(Ref %name q)] String))
+           (defn str [vec-ref]
+             (fmt "(PersistentVector size=%ld)" (length vec-ref)))
+
+           (sig prn (Fn [(Ref %name q)] String))
+           (defn prn [vec-ref]
+             (str vec-ref)))))))

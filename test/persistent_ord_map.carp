@@ -1,0 +1,151 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-ord-map IntStrMap Int String)
+(Persistent.define-ord-map IntIntOMap Int Int)
+
+(defn build-ascending [n]
+  (let-do [m (IntIntOMap.empty)]
+    (for [i 0 n]
+      (set! m (IntIntOMap.insert i i &m)))
+    m))
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn map-branch-lifecycle []
+  (let [m0 (IntStrMap.empty)
+        m1 (IntStrMap.insert 2 @"b" &m0)
+        m2 (IntStrMap.insert 1 @"a" &m1)
+        m3 (IntStrMap.insert 3 @"c" &m1)
+        m4 (IntStrMap.remove 2 &m2)
+        m5 (IntStrMap.remove 1 &m4)]
+    (do
+      (ignore m3)
+      (ignore m5))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [m (IntStrMap.empty)]
+      (IntStrMap.empty? &m))
+    "empty ordered map reports empty")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 2 @"two" &m0)
+          m2 (IntStrMap.insert 1 @"one" &m1)
+          m3 (IntStrMap.insert 3 @"three" &m2)]
+      (and (= (IntStrMap.length &m3) 3l)
+           (match (IntStrMap.get 1 &m3)
+             (Maybe.Just v) (= v @"one")
+             (Maybe.Nothing) false)
+           (match (IntStrMap.get 2 &m3)
+             (Maybe.Just v) (= v @"two")
+             (Maybe.Nothing) false)
+           (match (IntStrMap.get 3 &m3)
+             (Maybe.Just v) (= v @"three")
+             (Maybe.Nothing) false)))
+    "insert/get stores and retrieves keys")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 5 @"a" &m0)
+          m2 (IntStrMap.insert 5 @"b" &m1)]
+      (and (= (IntStrMap.length &m1) 1l)
+           (= (IntStrMap.length &m2) 1l)
+           (match (IntStrMap.get 5 &m2)
+             (Maybe.Just v) (= v @"b")
+             (Maybe.Nothing) false)))
+    "replacing value does not change size")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 2 @"two" &m0)
+          m2 (IntStrMap.insert 1 @"one" &m1)
+          m3 (IntStrMap.insert 3 @"three" &m2)
+          m4 (IntStrMap.remove 2 &m3)]
+      (and (= (IntStrMap.length &m4) 2l)
+           (Maybe.nothing? &(IntStrMap.get 2 &m4))
+           (IntStrMap.contains? 1 &m4)
+           (IntStrMap.contains? 3 &m4)))
+    "remove keeps remaining branches")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 2 @"two" &m0)
+          m2 (IntStrMap.insert 1 @"one" &m1)
+          m3 (IntStrMap.insert 3 @"three" &m2)]
+      (and (match (IntStrMap.min-key &m3)
+             (Maybe.Just v) (= v 1)
+             (Maybe.Nothing) false)
+           (match (IntStrMap.max-key &m3)
+             (Maybe.Just v) (= v 3)
+             (Maybe.Nothing) false)))
+    "min-key and max-key follow ordering")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 1 @"one" &m0)]
+      (and (Maybe.nothing? &(IntStrMap.get 1 &m0))
+           (IntStrMap.contains? 1 &m1)))
+    "persistence keeps prior map unchanged")
+
+  (assert-equal test
+    true
+    (let [m (build-ascending 10000)
+          k 9999]
+      (and (= (IntIntOMap.length &m) 10000l)
+           (match (IntIntOMap.get k &m)
+             (Maybe.Just v) (= v 9999)
+             (Maybe.Nothing) false)))
+    "ascending-insert spine does not blow the C stack (non-tail insert-node)")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 3 @"three" &m0)
+          m2 (IntStrMap.insert 1 @"one" &m1)
+          m3 (IntStrMap.insert 2 @"two" &m2)
+          arr (IntStrMap.to-array &m3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Pair.a (Array.unsafe-nth &arr 0)) 1)
+           (= @(Pair.a (Array.unsafe-nth &arr 2)) 3)))
+    "to-array yields ascending key order")
+
+  (assert-equal test
+    true
+    (let [m0 (IntStrMap.empty)
+          m1 (IntStrMap.insert 5 @"x" &m0)
+          m2 (IntStrMap.insert 1 @"y" &m1)
+          ks (IntStrMap.keys &m2)
+          vs (IntStrMap.values &m2)]
+      (and (= (Array.length &ks) 2)
+           (= @(Array.unsafe-nth &ks 0) 1)
+           (= @(Array.unsafe-nth &ks 1) 5)
+           (= @(Array.unsafe-nth &vs 0) @"y")))
+    "keys and values walk in ascending key order")
+
+  (assert-equal test
+    true
+    (let [a (IntStrMap.insert 2 @"b" &(IntStrMap.insert 1 @"a" &(IntStrMap.empty)))
+          b (IntStrMap.insert 1 @"a" &(IntStrMap.insert 2 @"b" &(IntStrMap.empty)))
+          c (IntStrMap.insert 1 @"a" &(IntStrMap.insert 2 @"c" &(IntStrMap.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural regardless of insertion order")
+
+  (assert-memory-balance test map-branch-lifecycle 0l "persistent ordered map branch lifecycle is memory-balanced")
+)

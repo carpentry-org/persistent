@@ -1,0 +1,87 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/persistent">
+                    <img src="">
+                </a>
+                <div class="title">
+                    persistent
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <a href="Persistent.html">
+                                Persistent
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Design.html">
+                                Design
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Testing.html">
+                                Testing
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    Testing
+                </h1>
+                <div class="module-description">
+                    <p>Testing overview for <code>persistent</code>.</p>
+<h2>Approach</h2>
+<p><code>persistent</code> emphasizes deterministic semantic coverage plus sanitizer lanes.
+Fuzzing responsibility is concentrated at the <code>rc</code> layer.</p>
+<h2>Suites</h2>
+<ul>
+<li><code>test/persistent_list.carp</code></li>
+<li><code>test/persistent_queue.carp</code></li>
+<li><code>test/persistent_trie.carp</code></li>
+<li><code>test/persistent_deque.carp</code></li>
+<li><code>test/persistent_ord_map.carp</code></li>
+<li><code>test/persistent_ord_set.carp</code></li>
+<li><code>test/persistent_heap.carp</code></li>
+<li><code>test/persistent_hash_map.carp</code></li>
+<li><code>test/persistent_hash_set.carp</code></li>
+<li><code>test/persistent_vector.carp</code></li>
+</ul>
+<h2>Validation Matrix</h2>
+<p>Run from repository root:</p>
+<ul>
+<li><code>./scripts/validate.sh</code></li>
+</ul>
+<p>Lanes:</p>
+<ul>
+<li>O1 + ASan/UBSan</li>
+<li>O2 release-like</li>
+<li>O3 optimizer stress (optional via <code>PERSISTENT_VALIDATE_RUN_O3=0</code>)</li>
+</ul>
+<h2>Coverage Highlights</h2>
+<ul>
+<li>persistence semantics across all structure families</li>
+<li>iteration and structural equality behavior</li>
+<li>lifecycle memory-balance checks</li>
+<li>deep-input stack-safety regressions</li>
+<li>known hash-path regression (<code>Int.MIN</code>) for hash map</li>
+</ul>
+<h2>Known Compiler Noise</h2>
+<p>Current Carp may emit warnings for internal generated <code>Rc</code> node handles
+(<code>No 'prn'</code> / <code>Too many 'delete'</code>) while tests still pass.</p>
+
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

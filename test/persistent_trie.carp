@@ -1,0 +1,182 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-trie IntTrie Int String)
+(Persistent.define-trie IntTrieInt Int Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn build-long-key [n]
+  (let-do [k (the (Array Int) [])]
+    (for [i 0 n]
+      (set! k (Array.push-back k i)))
+    k))
+
+(defn trie-branch-lifecycle []
+  (let [k12 [1 2]
+        k123 [1 2 3]
+        k124 [1 2 4]
+        t0 (IntTrieInt.empty)
+        t1 (IntTrieInt.insert &k12 1 &t0)
+        t2 (IntTrieInt.insert &k123 2 &t1)
+        t3 (IntTrieInt.insert &k124 3 &t2)
+        t4 (IntTrieInt.remove &k12 &t3)
+        t5 (IntTrieInt.remove &k123 &t4)]
+    (ignore t5)))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [t (IntTrie.empty)]
+      (IntTrie.empty? &t))
+    "empty trie reports empty")
+
+  (assert-equal test
+    0l
+    (let [t (IntTrie.empty)]
+      (IntTrie.length &t))
+    "empty trie has size 0")
+
+  (assert-equal test
+    true
+    (let [t (IntTrie.empty)
+          k [1 2 3]]
+      (Maybe.nothing? &(IntTrie.get &k &t)))
+    "get on empty trie returns Nothing")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k [1 2 3]
+          t1 (IntTrie.insert &k @"alpha" &t0)]
+      (match (IntTrie.get &k &t1)
+        (Maybe.Just v) (= v @"alpha")
+        (Maybe.Nothing) false))
+    "insert/get roundtrip")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k [1 2 3]
+          t1 (IntTrie.insert &k @"alpha" &t0)]
+      (and (Maybe.nothing? &(IntTrie.get &k &t0))
+           (IntTrie.contains? &k &t1)))
+    "persistence keeps previous version unchanged")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k [1 2 3]
+          t1 (IntTrie.insert &k @"alpha" &t0)
+          t2 (IntTrie.insert &k @"beta" &t1)]
+      (and (= (IntTrie.length &t1) 1l)
+           (= (IntTrie.length &t2) 1l)
+           (match (IntTrie.get &k &t2)
+             (Maybe.Just v) (= v @"beta")
+             (Maybe.Nothing) false)))
+    "replacing existing key does not change size")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k123 [1 2 3]
+          k124 [1 2 4]
+          p12 [1 2]
+          p9 [9]
+          t1 (IntTrie.insert &k123 @"x" &t0)
+          t2 (IntTrie.insert &k124 @"y" &t1)]
+      (and (= (IntTrie.length &t2) 2l)
+           (IntTrie.contains-prefix? &p12 &t2)
+           (not (IntTrie.contains-prefix? &p9 &t2))))
+    "branching keys and prefix queries")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k123 [1 2 3]
+          k124 [1 2 4]
+          t1 (IntTrie.insert &k123 @"x" &t0)
+          t2 (IntTrie.insert &k124 @"y" &t1)
+          t3 (IntTrie.remove &k123 &t2)]
+      (and (= (IntTrie.length &t3) 1l)
+           (Maybe.nothing? &(IntTrie.get &k123 &t3))
+           (match (IntTrie.get &k124 &t3)
+             (Maybe.Just v) (= v @"y")
+             (Maybe.Nothing) false)))
+    "remove prunes key while retaining sibling branch")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k [7 8]
+          missing [9 9]
+          t1 (IntTrie.insert &k @"z" &t0)
+          t2 (IntTrie.remove &missing &t1)]
+      (IntTrie.ptr-eq &t1 &t2))
+    "remove missing key returns pointer-equivalent trie")
+
+  (assert-equal test
+    true
+    (let [empty-key (the (Array Int) [])
+          t0 (IntTrie.empty)
+          t1 (IntTrie.insert &empty-key @"root" &t0)
+          t2 (IntTrie.remove &empty-key &t1)]
+      (and (match (IntTrie.get &empty-key &t1)
+             (Maybe.Just v) (= v @"root")
+             (Maybe.Nothing) false)
+           (= (IntTrie.length &t2) 0l)))
+    "empty key is supported at root")
+
+  (assert-equal test
+    true
+    (let [k (build-long-key 100000)
+          t0 (IntTrie.empty)
+          t1 (IntTrie.insert &k @"deep" &t0)]
+      (and (= (IntTrie.length &t1) 1l)
+           (match (IntTrie.get &k &t1)
+             (Maybe.Just v) (= v @"deep")
+             (Maybe.Nothing) false)))
+    "inserting a 100k-part key does not blow the C stack (build-branch + insert-node non-tail)")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k1 [1 2]
+          k2 [1 2 3]
+          t1 (IntTrie.insert &k1 @"a" &t0)
+          t2 (IntTrie.insert &k2 @"b" &t1)
+          arr (IntTrie.to-array &t2)]
+      (and (= (Array.length &arr) 2)))
+    "to-array yields all entries")
+
+  (assert-equal test
+    true
+    (let [t0 (IntTrie.empty)
+          k1 [1 2]
+          t1 (IntTrie.insert &k1 @"a" &t0)
+          vs (IntTrie.values &t1)]
+      (and (= (Array.length &vs) 1)
+           (= @(Array.unsafe-nth &vs 0) @"a")))
+    "values collects into Array")
+
+  (assert-equal test
+    true
+    (let [k1 [1 2]
+          k2 [1 2 3]
+          a (IntTrie.insert &k2 @"b" &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))
+          b (IntTrie.insert &k1 @"a" &(IntTrie.insert &k2 @"b" &(IntTrie.empty)))
+          c (IntTrie.insert &k2 @"DIFF" &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural across insertion orders")
+
+  (assert-memory-balance test trie-branch-lifecycle 0l "persistent trie branch lifecycle is memory-balanced")
+)

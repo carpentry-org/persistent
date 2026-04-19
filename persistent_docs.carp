@@ -1,0 +1,116 @@
+(doc Design "How `persistent` is built.
+
+This is for people curious about the internals. If you just want to use the
+library, the README and per-function docs cover the user surface.
+
+## What 'persistent' means here
+
+Each collection update returns a new collection that shares most of its
+memory with the old one. The old version stays valid. That's it.
+Updates allocate only along the path that changed; everything else is reused
+by pointer. `Rc` (reference counting) keeps the shared parts alive until the
+last version that points at them is gone.
+
+## Why a macro generator
+
+Each collection is actually a small family of types: a public wrapper, one
+or more internal recursive node types, reference-counted handles for those
+nodes, and a module of operations. `Rc.define` itself is a generator that
+runs per node type, so the whole stack has to be specialized at expansion
+time. Generating it through `Persistent.define-*` gives you stable
+namespaces (`IntList`, `StrMap`, …) and direct calls with no runtime
+dispatch.
+
+## Collections at a glance
+
+- **List**: singly-linked. Cheap prepend/head/tail.
+- **Queue**: two-list FIFO with amortized O(1) ends.
+- **Deque**: two-list double-ended queue.
+- **Trie**: keyed by `(Array K)`, supports prefix queries.
+- **Ordered map / set**: unbalanced persistent BST.
+- **Heap**: persistent skew min-heap. Everything is `merge`.
+- **Hash map / set**: trie keyed by hash digits (depth 8, radix 16).
+- **Vector**: trie keyed by index digits (depth 7, radix 32).
+
+## Equality
+
+`ptr-eq` compares backing roots and counts; cheap, useful for short-circuiting
+work. `=` is structural for everything except heap (multiset equality is
+caller-defined).
+
+## Iteration
+
+Every collection exposes `reduce`, `each`, and `to-array`. Map-likes also
+expose `keys` and `values`; the trie additionally exposes `reduce-values`.
+
+## Stack safety
+
+Algorithms that would naively recurse on the C stack are written iteratively:
+list `drop-n`, queue/deque reversals, trie path rebuilds, ord-map path
+rebuilds, heap merge spine. Deep inputs are bounded by heap memory rather
+than C stack depth.
+
+## Inherited from `rc`
+
+- single-threaded; non-atomic counters
+- no cycle collection
+- iterative payload teardown (drain queue) so dropping a deeply nested
+  structure doesn't recurse on the C stack")
+(defmodule Design)
+
+(doc Testing "How `persistent` is tested.
+
+## Approach
+
+Tests are deterministic and semantic. Each collection has its own suite under
+`test/`. Heavy randomized fuzzing lives in `rc`, because that's where the
+shared-ownership lifetime risk concentrates. Verifying `rc` holds plus
+checking that each collection wires it up correctly is the contract here.
+
+## What's covered for every collection
+
+- constructors and emptiness
+- the structure-specific updates (insert/update/remove/push/pop/get)
+- persistence: older versions remain unchanged after updates
+- `ptr-eq` behavior on branching
+- iteration (`reduce`, `each`, `to-array`)
+- structural `=` where defined
+- per-suite memory balance (no leaks, no double-frees)
+- deep-input regressions (e.g. list `drop-n` at 200k, others at 100k)
+
+A few structure-specific checks: trie prefix lookup, ordered map min/max and
+successor-based delete, heap sorted-pop progression, hash map `Int.MIN`
+hash-path regression, vector `assoc` and `pop-back` branch behavior.
+
+## Running
+
+Single suite:
+
+```
+carp -x test/persistent_list.carp --log-memory --no-profile
+```
+
+Full validation matrix (sanitizers + multiple optimization levels):
+
+```
+./scripts/validate.sh
+```
+
+Lanes: `O1` with ASan/UBSan; `O2` release-like; `O3` optimizer stress
+(`PERSISTENT_VALIDATE_RUN_O3=0` to skip).
+
+## Knobs
+
+- `PERSISTENT_OPT_LEVEL`: `O0|O1|O2|O3` (default `O1`)
+- `PERSISTENT_SANITIZE`: `1|true|yes` enables sanitizers
+- `PERSISTENT_VALIDATE_RUN_O3`: `0` to skip the O3 lane
+- `CARP_BIN`: override the `carp` binary the script uses
+
+## Known compiler noise
+
+The current Carp release sometimes emits warnings about internal generated
+`Rc` node handle types (`No 'prn'`, `Too many 'delete'`). They're an artifact
+of how `Rc.define` interacts with the surrounding deftype system, not signals
+of a real problem. Treat them as expected noise as long as the suites and the
+sanitized lane are green.")
+(defmodule Testing)

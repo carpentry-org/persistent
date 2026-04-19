@@ -1,0 +1,166 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-queue IntQueue Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn build-long-queue [n]
+  (let-do [q (IntQueue.empty)]
+    (for [i 0 n]
+      (set! q (IntQueue.enqueue i &q)))
+    q))
+
+(defn queue-branch-lifecycle []
+  (let [q0 (IntQueue.empty)
+        q1 (IntQueue.enqueue 1 &q0)
+        q2 (IntQueue.enqueue 2 &q1)
+        q3 (IntQueue.enqueue 3 &q1)]
+    (do
+      (ignore q2)
+      (ignore q3))))
+
+(defn queue-drain-values [q-ref]
+  (let [out0 []]
+    (queue-drain-iter q-ref &out0)))
+
+(defn queue-drain-iter [q-ref out-ref]
+  (match (IntQueue.dequeue q-ref)
+    (Maybe.Nothing) @out-ref
+    (Maybe.Just p)
+      (let [value @(Pair.a &p)
+            next-q @(Pair.b &p)]
+        (do
+          (Array.push-back! out-ref value)
+          (queue-drain-iter &next-q out-ref)))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [q (IntQueue.empty)]
+      (IntQueue.empty? &q))
+    "empty queue reports empty")
+
+  (assert-equal test
+    0l
+    (let [q (IntQueue.empty)]
+      (IntQueue.length &q))
+    "empty queue has length 0")
+
+  (assert-equal test
+    true
+    (let [q (IntQueue.empty)]
+      (Maybe.nothing? &(IntQueue.peek &q)))
+    "peek on empty queue returns Nothing")
+
+  (assert-equal test
+    true
+    (let [q (IntQueue.empty)]
+      (Maybe.nothing? &(IntQueue.dequeue &q)))
+    "dequeue on empty queue returns Nothing")
+
+  (assert-equal test
+    1
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)]
+      (match (IntQueue.peek &q3)
+        (Maybe.Just v) v
+        (Maybe.Nothing) -1))
+    "peek returns FIFO front")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)
+          vals (queue-drain-values &q3)]
+      (and (= (Array.length &vals) 3)
+           (= @(Array.unsafe-nth &vals 0) 1)
+           (= @(Array.unsafe-nth &vals 1) 2)
+           (= @(Array.unsafe-nth &vals 2) 3)))
+    "dequeue drains in FIFO order")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)]
+      (match (IntQueue.dequeue &q3)
+        (Maybe.Nothing) false
+        (Maybe.Just p)
+          (let [q4 @(Pair.b &p)]
+            (match (IntQueue.peek &q4)
+              (Maybe.Just v) (= v 2)
+              (Maybe.Nothing) false))))
+    "dequeue rebalances rear when front is exhausted")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q1)]
+      (and (not (IntQueue.ptr-eq &q2 &q3))
+           (= 2l (IntQueue.length &q2))
+           (= 2l (IntQueue.length &q3))))
+    "branching queues preserve persistence")
+
+  (assert-equal test
+    true
+    (let [q (build-long-queue 100000)]
+      (match (IntQueue.dequeue &q)
+        (Maybe.Nothing) false
+        (Maybe.Just p)
+          (let [v @(Pair.a &p)
+                q2 @(Pair.b &p)]
+            (and (= v 0)
+                 (= (IntQueue.length &q2) 99999l)))))
+    "first dequeue on a 100k-rear queue reverses without blowing the C stack")
+
+  (assert-equal test
+    6
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)]
+      (IntQueue.reduce &(fn [acc x] (+ acc x)) 0 &q3))
+    "reduce folds queue in FIFO order")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)
+          arr (IntQueue.to-array &q3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "to-array materializes FIFO order")
+
+  (assert-equal test
+    true
+    (let [a0 (IntQueue.empty)
+          a1 (IntQueue.enqueue 1 &a0)
+          a2 (IntQueue.enqueue 2 &a1)
+          b (match (IntQueue.dequeue &(IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0)))
+              (Maybe.Just p) (IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0))
+              (Maybe.Nothing) a0)]
+      (= &a2 &b))
+    "= is structural across internal front/rear splits")
+
+  (assert-memory-balance test queue-branch-lifecycle 0l "persistent queue branch lifecycle is memory-balanced")
+)

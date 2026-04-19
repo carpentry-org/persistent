@@ -1,0 +1,158 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-deque IntDeque Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn build-long-back-deque [n]
+  (let-do [d (IntDeque.empty)]
+    (for [i 0 n]
+      (set! d (IntDeque.push-back i &d)))
+    d))
+
+(defn deque-branch-lifecycle []
+  (let [d0 (IntDeque.empty)
+        d1 (IntDeque.push-back 1 &d0)
+        d2 (IntDeque.push-back 2 &d1)
+        d3 (IntDeque.push-front 0 &d2)
+        d4 (IntDeque.push-back 3 &d3)]
+    (do
+      (ignore d2)
+      (ignore d4))))
+
+(defn pop-front-values [dq-ref]
+  (let [out0 []]
+    (pop-front-values-iter dq-ref &out0)))
+
+(defn pop-front-values-iter [dq-ref out-ref]
+  (match (IntDeque.pop-front dq-ref)
+    (Maybe.Nothing) @out-ref
+    (Maybe.Just p)
+      (let [value @(Pair.a &p)
+            next-dq @(Pair.b &p)]
+        (do
+          (Array.push-back! out-ref value)
+          (pop-front-values-iter &next-dq out-ref)))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [d (IntDeque.empty)]
+      (IntDeque.empty? &d))
+    "empty deque reports empty")
+
+  (assert-equal test
+    0l
+    (let [d (IntDeque.empty)]
+      (IntDeque.length &d))
+    "empty deque has length 0")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-front 0 &d1)
+          d3 (IntDeque.push-back 2 &d2)]
+      (and (match (IntDeque.peek-front &d3)
+             (Maybe.Just v) (= v 0)
+             (Maybe.Nothing) false)
+           (match (IntDeque.peek-back &d3)
+             (Maybe.Just v) (= v 2)
+             (Maybe.Nothing) false)))
+    "peek-front/peek-back read both ends")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          d3 (IntDeque.push-front 0 &d2)
+          vals (pop-front-values &d3)]
+      (and (= (Array.length &vals) 3)
+           (= @(Array.unsafe-nth &vals 0) 0)
+           (= @(Array.unsafe-nth &vals 1) 1)
+           (= @(Array.unsafe-nth &vals 2) 2)))
+    "pop-front drains in expected order")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          d3 (IntDeque.push-back 3 &d2)]
+      (match (IntDeque.pop-back &d3)
+        (Maybe.Nothing) false
+        (Maybe.Just p)
+          (let [value @(Pair.a &p)
+                d4 @(Pair.b &p)]
+            (and (= value 3)
+                 (match (IntDeque.peek-back &d4)
+                   (Maybe.Just v) (= v 2)
+                   (Maybe.Nothing) false)))))
+    "pop-back removes rear and updates rear view")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          d3 (IntDeque.push-back 3 &d1)]
+      (and (not (IntDeque.ptr-eq &d2 &d3))
+           (= (IntDeque.length &d2) 2l)
+           (= (IntDeque.length &d3) 2l)))
+    "branching deques preserve persistence")
+
+  (assert-equal test
+    true
+    (let [d (build-long-back-deque 100000)]
+      (match (IntDeque.pop-front &d)
+        (Maybe.Nothing) false
+        (Maybe.Just p)
+          (let [v @(Pair.a &p)
+                d2 @(Pair.b &p)]
+            (and (= v 0)
+                 (= (IntDeque.length &d2) 99999l)))))
+    "pop-front on 100k rear-only deque rebalances without blowing the C stack")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 2 &d0)
+          d2 (IntDeque.push-back 3 &d1)
+          d3 (IntDeque.push-front 1 &d2)
+          arr (IntDeque.to-array &d3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 1) 2)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "to-array materializes deque front-to-back")
+
+  (assert-equal test
+    6
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 2 &d0)
+          d2 (IntDeque.push-front 1 &d1)
+          d3 (IntDeque.push-back 3 &d2)]
+      (IntDeque.reduce &(fn [acc x] (+ acc x)) 0 &d3))
+    "reduce folds deque front-to-back")
+
+  (assert-equal test
+    true
+    (let [a (IntDeque.push-back 2 &(IntDeque.push-back 1 &(IntDeque.empty)))
+          b (IntDeque.push-front 1 &(IntDeque.push-back 2 &(IntDeque.empty)))
+          c (IntDeque.push-back 3 &(IntDeque.push-back 1 &(IntDeque.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural regardless of front/rear split")
+
+  (assert-memory-balance test deque-branch-lifecycle 0l "persistent deque branch lifecycle is memory-balanced")
+)

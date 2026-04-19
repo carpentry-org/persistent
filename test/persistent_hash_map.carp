@@ -1,0 +1,128 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-hash-map IntIntMap Int Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn map-branch-lifecycle []
+  (let [m0 (IntIntMap.empty)
+        m1 (IntIntMap.insert 1 10 &m0)
+        m2 (IntIntMap.insert 2 20 &m1)
+        m3 (IntIntMap.insert 3 30 &m1)
+        k1 1
+        m4 (IntIntMap.remove &k1 &m2)]
+    (do
+      (ignore m3)
+      (ignore m4))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [m (IntIntMap.empty)]
+      (IntIntMap.empty? &m))
+    "empty hash map reports empty")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 1 10 &m0)
+          m2 (IntIntMap.insert 2 20 &m1)
+          m3 (IntIntMap.insert 3 30 &m2)
+          k1 1
+          k2 2
+          k3 3]
+      (and (= (IntIntMap.length &m3) 3l)
+           (match (IntIntMap.get &k1 &m3)
+             (Maybe.Just v) (= v 10)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k2 &m3)
+             (Maybe.Just v) (= v 20)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k3 &m3)
+             (Maybe.Just v) (= v 30)
+             (Maybe.Nothing) false)))
+    "insert/get stores and retrieves keys")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 5 1 &m0)
+          m2 (IntIntMap.insert 5 9 &m1)
+          k 5]
+      (and (= (IntIntMap.length &m2) 1l)
+           (match (IntIntMap.get &k &m2)
+             (Maybe.Just v) (= v 9)
+             (Maybe.Nothing) false)))
+    "replacing value does not change size")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 1 10 &m0)
+          m2 (IntIntMap.insert 2 20 &m1)
+          k1 1
+          k2 2
+          m3 (IntIntMap.remove &k1 &m2)]
+      (and (= (IntIntMap.length &m3) 1l)
+           (not (IntIntMap.contains? &k1 &m3))
+           (IntIntMap.contains? &k2 &m3)))
+    "remove drops only target key")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 9 1 &m0)
+          k 9]
+      (and (not (IntIntMap.contains? &k &m0))
+           (IntIntMap.contains? &k &m1)))
+    "persistence keeps prior map unchanged")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert Int.MIN 42 &m0)
+          k Int.MIN]
+      (match (IntIntMap.get &k &m1)
+        (Maybe.Just v) (= v 42)
+        (Maybe.Nothing) false))
+    "Int.MIN key does not trap in hash-path (Int.abs(INT_MIN) UB)")
+
+  (assert-equal test
+    6
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 1 1 &m0)
+          m2 (IntIntMap.insert 2 2 &m1)
+          m3 (IntIntMap.insert 3 3 &m2)]
+      (IntIntMap.reduce &(fn [acc p] (+ acc @(Pair.b &p))) 0 &m3))
+    "reduce sums values")
+
+  (assert-equal test
+    3
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 1 10 &m0)
+          m2 (IntIntMap.insert 2 20 &m1)
+          m3 (IntIntMap.insert 3 30 &m2)
+          ks (IntIntMap.keys &m3)]
+      (Array.length &ks))
+    "keys returns all keys")
+
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 2 20 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))
+          b (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
+          c (IntIntMap.insert 1 99 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural regardless of insertion order")
+
+  (assert-memory-balance test map-branch-lifecycle 0l "persistent hash map branch lifecycle is memory-balanced")
+)

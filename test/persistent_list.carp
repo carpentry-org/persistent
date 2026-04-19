@@ -1,0 +1,145 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-list IntList Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn build-long-list [n]
+  (let-do [l (IntList.empty)]
+    (for [i 0 n]
+      (set! l (IntList.prepend i &l)))
+    l))
+
+(defn list-branch-lifecycle []
+  (let [base (IntList.singleton 1)
+        left (IntList.prepend 2 &base)
+        right (IntList.prepend 3 &base)]
+    (do
+      (ignore left)
+      (ignore right))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [l (IntList.empty)]
+      (IntList.empty? &l))
+    "empty list reports empty")
+
+  (assert-equal test
+    0l
+    (let [l (IntList.empty)]
+      (IntList.length &l))
+    "empty list has length 0")
+
+  (assert-equal test
+    2l
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)]
+      (IntList.length &l2))
+    "prepend increments length")
+
+  (assert-equal test
+    2
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)]
+      (match (IntList.head &l2)
+        (Maybe.Just v) v
+        (Maybe.Nothing) -1))
+    "head reads first value")
+
+  (assert-equal test
+    1
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)]
+      (match (IntList.tail &l2)
+        (Maybe.Just t)
+          (match (IntList.head &t)
+            (Maybe.Just v) v
+            (Maybe.Nothing) -1)
+        (Maybe.Nothing) -1))
+    "tail exposes next value")
+
+  (assert-equal test
+    true
+    (let [base (IntList.singleton 1)
+          left (IntList.prepend 2 &base)
+          right (IntList.prepend 3 &base)]
+      (match (IntList.tail &left)
+        (Maybe.Just lt)
+          (match (IntList.tail &right)
+            (Maybe.Just rt) (IntList.ptr-eq &lt &rt)
+            (Maybe.Nothing) false)
+        (Maybe.Nothing) false))
+    "branching preserves shared tail")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l0b (IntList.empty)
+          l1 (IntList.singleton 7)
+          d (IntList.drop-n 3l &l1)]
+      (and (IntList.ptr-eq &l0 &l0b)
+           (IntList.empty? &d)
+           (= (IntList.length &d) 0l)))
+    "drop beyond length yields empty")
+
+  (assert-equal test
+    true
+    (let [l (build-long-list 200000)
+          d (IntList.drop-n 200000l &l)]
+      (IntList.empty? &d))
+    "drop-n through a 200k-long list does not blow the C stack")
+
+  (assert-equal test
+    6
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 3 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 1 &l2)]
+      (IntList.reduce &(fn [acc x] (+ acc x)) 0 &l3))
+    "reduce folds head-to-tail")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 30 &l0)
+          l2 (IntList.prepend 20 &l1)
+          l3 (IntList.prepend 10 &l2)
+          arr (IntList.to-array &l3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 10)
+           (= @(Array.unsafe-nth &arr 1) 20)
+           (= @(Array.unsafe-nth &arr 2) 30)))
+    "to-array copies values in list order")
+
+  (assert-equal test
+    true
+    (let [a0 (IntList.empty)
+          a1 (IntList.prepend 2 &a0)
+          a2 (IntList.prepend 1 &a1)
+          b0 (IntList.empty)
+          b1 (IntList.prepend 2 &b0)
+          b2 (IntList.prepend 1 &b1)
+          c0 (IntList.empty)
+          c1 (IntList.prepend 9 &c0)
+          c2 (IntList.prepend 1 &c1)]
+      (and (= &a2 &b2)
+           (not (= &a2 &c2))
+           (not (= &a2 &a1))))
+    "= is structural: equal shape + elements")
+
+  (assert-memory-balance test list-branch-lifecycle 0l "persistent branch lifecycle is memory-balanced")
+)

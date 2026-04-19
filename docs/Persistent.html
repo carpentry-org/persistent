@@ -1,0 +1,299 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/persistent">
+                    <img src="">
+                </a>
+                <div class="title">
+                    persistent
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <a href="Persistent.html">
+                                Persistent
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Design.html">
+                                Design
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Testing.html">
+                                Testing
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    Persistent
+                </h1>
+                <div class="module-description">
+                    <p>Macro-generated persistent data structures backed by <code>Rc</code>.</p>
+
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-deque">
+                        <h3 id="define-deque">
+                            define-deque
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-deque name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent deque backed by two shared lists.</p>
+<p>Example:</p>
+<p>(Persistent.define-deque IntDeque Int)</p>
+<p>This generates:</p>
+<ul>
+<li>type <code>IntDeque</code></li>
+<li>module <code>IntDeque</code> with deque operations</li>
+<li>internal list type used as front/rear storage</li>
+</ul>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-hash-map">
+                        <h3 id="define-hash-map">
+                            define-hash-map
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-hash-map name key-type value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent hash map using trie-indexed hash buckets.</p>
+<p>Example:</p>
+<p>(Persistent.define-hash-map StrIntMap String Int)</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-hash-set">
+                        <h3 id="define-hash-set">
+                            define-hash-set
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-hash-set name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent hash set backed by a hash map.</p>
+<p>Example:</p>
+<p>(Persistent.define-hash-set StrSet String)</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-heap">
+                        <h3 id="define-heap">
+                            define-heap
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-heap name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent min-heap (skew heap).</p>
+<p>Example:</p>
+<p>(Persistent.define-heap IntHeap Int)</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-list">
+                        <h3 id="define-list">
+                            define-list
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-list name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent singly linked list type.</p>
+<p>Example:</p>
+<p>(Persistent.define-list IntList Int)</p>
+<p>This generates:</p>
+<ul>
+<li>type <code>IntList</code></li>
+<li>module <code>IntList</code> with persistent list operations</li>
+<li>internal node and node-<code>Rc</code> types for structural sharing</li>
+</ul>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-ord-map">
+                        <h3 id="define-ord-map">
+                            define-ord-map
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-ord-map name key-type value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent ordered map backed by a binary search tree.</p>
+<p>Example:</p>
+<p>(Persistent.define-ord-map IntMap Int String)</p>
+<p>This generates:</p>
+<ul>
+<li>type <code>IntMap</code></li>
+<li>module <code>IntMap</code> with ordered-map operations</li>
+<li>internal node and node-<code>Rc</code> types for structural sharing</li>
+</ul>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-ord-set">
+                        <h3 id="define-ord-set">
+                            define-ord-set
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-ord-set name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent ordered set backed by an ordered map.</p>
+<p>Example:</p>
+<p>(Persistent.define-ord-set IntSet Int)</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-queue">
+                        <h3 id="define-queue">
+                            define-queue
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-queue name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent amortized O(1) queue using two shared lists.</p>
+<p>Example:</p>
+<p>(Persistent.define-queue IntQueue Int)</p>
+<p>This generates:</p>
+<ul>
+<li>type <code>IntQueue</code></li>
+<li>module <code>IntQueue</code> with queue operations</li>
+<li>internal list type used as front/rear storage</li>
+</ul>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-trie">
+                        <h3 id="define-trie">
+                            define-trie
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-trie name key-part-type value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent trie map keyed by <code>(Array K)</code>.</p>
+<p>Example:</p>
+<p>(Persistent.define-trie IntTrie Int String)</p>
+<p>This generates:</p>
+<ul>
+<li>type <code>IntTrie</code></li>
+<li>module <code>IntTrie</code> with trie-map operations</li>
+<li>internal node and node-<code>Rc</code> types for structural sharing</li>
+</ul>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#define-vector">
+                        <h3 id="define-vector">
+                            define-vector
+                        </h3>
+                    </a>
+                    <div class="description">
+                        macro
+                    </div>
+                    <p class="sig">
+                        Macro
+                    </p>
+                    <pre class="args">
+                        (define-vector name value-type)
+                    </pre>
+                    <p class="doc">
+                        <p>Generate a persistent random-access vector indexed by <code>Int</code>.</p>
+<p>Example:</p>
+<p>(Persistent.define-vector IntVec Int)</p>
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

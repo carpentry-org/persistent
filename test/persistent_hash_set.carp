@@ -1,0 +1,87 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-hash-set IntSet Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn set-branch-lifecycle []
+  (let [s0 (IntSet.empty)
+        s1 (IntSet.insert 1 &s0)
+        s2 (IntSet.insert 2 &s1)
+        s3 (IntSet.insert 3 &s1)
+        v1 1
+        s4 (IntSet.remove &v1 &s2)]
+    (do
+      (ignore s3)
+      (ignore s4))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [s (IntSet.empty)]
+      (IntSet.empty? &s))
+    "empty hash set reports empty")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 1 &s0)
+          s2 (IntSet.insert 2 &s1)
+          v1 1
+          v2 2]
+      (and (= (IntSet.length &s2) 2l)
+           (IntSet.contains? &v1 &s2)
+           (IntSet.contains? &v2 &s2)))
+    "insert/contains works")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 7 &s0)
+          s2 (IntSet.insert 7 &s1)]
+      (= (IntSet.length &s2) 1l))
+    "duplicate insert is idempotent")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 1 &s0)
+          s2 (IntSet.insert 2 &s1)
+          v1 1
+          v2 2
+          s3 (IntSet.remove &v1 &s2)]
+      (and (= (IntSet.length &s3) 1l)
+           (not (IntSet.contains? &v1 &s3))
+           (IntSet.contains? &v2 &s3)))
+    "remove drops only target value")
+
+  (assert-equal test
+    3
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 10 &s0)
+          s2 (IntSet.insert 20 &s1)
+          s3 (IntSet.insert 30 &s2)
+          arr (IntSet.to-array &s3)]
+      (Array.length &arr))
+    "to-array has count elements")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          b (IntSet.insert 1 &(IntSet.insert 2 &(IntSet.empty)))
+          c (IntSet.insert 3 &(IntSet.insert 1 &(IntSet.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural regardless of insertion order")
+
+  (assert-memory-balance test set-branch-lifecycle 0l "persistent hash set branch lifecycle is memory-balanced")
+)

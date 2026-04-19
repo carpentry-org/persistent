@@ -1,0 +1,14 @@
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "persistent.carp")
+(load "persistent_docs.carp")
+
+(Project.config "title" "persistent")
+(Project.config "docs-directory" "./docs/")
+(Project.config "docs-logo" "")
+(Project.config "docs-url" "https://github.com/carpentry-org/persistent")
+(Project.config "docs-styling" "style.css")
+(Project.config "docs-generate-index" true)
+(Project.config "docs-prelude" "Macro-generated persistent data structures for Carp, backed by Rc structural sharing.")
+
+(save-docs Persistent Design Testing)
+(quit)

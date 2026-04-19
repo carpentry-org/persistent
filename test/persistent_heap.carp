@@ -1,0 +1,120 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-heap IntHeap Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn build-descending-heap [n]
+  (let-do [h (IntHeap.empty)]
+    (for [i 0 n]
+      (set! h (IntHeap.insert (- n i) &h)))
+    h))
+
+(defn heap-branch-lifecycle []
+  (let [h0 (IntHeap.empty)
+        h1 (IntHeap.insert 5 &h0)
+        h2 (IntHeap.insert 2 &h1)
+        h3 (IntHeap.insert 7 &h1)
+        h4 (IntHeap.merge &h2 &h3)]
+    (ignore h4)))
+
+(defn pop-values [heap-ref]
+  (let [out0 []]
+    (pop-values-iter heap-ref &out0)))
+
+(defn pop-values-iter [heap-ref out-ref]
+  (match (IntHeap.pop heap-ref)
+    (Maybe.Nothing) @out-ref
+    (Maybe.Just p)
+      (let [value @(Pair.a &p)
+            next-h @(Pair.b &p)]
+        (do
+          (Array.push-back! out-ref value)
+          (pop-values-iter &next-h out-ref)))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [h (IntHeap.empty)]
+      (IntHeap.empty? &h))
+    "empty heap reports empty")
+
+  (assert-equal test
+    true
+    (let [h0 (IntHeap.empty)
+          h1 (IntHeap.insert 5 &h0)
+          h2 (IntHeap.insert 2 &h1)
+          h3 (IntHeap.insert 7 &h2)]
+      (match (IntHeap.peek &h3)
+        (Maybe.Just v) (= v 2)
+        (Maybe.Nothing) false))
+    "peek returns minimum")
+
+  (assert-equal test
+    true
+    (let [h0 (IntHeap.empty)
+          h1 (IntHeap.insert 5 &h0)
+          h2 (IntHeap.insert 2 &h1)
+          h3 (IntHeap.insert 7 &h2)
+          vals (pop-values &h3)]
+      (and (= (Array.length &vals) 3)
+           (= @(Array.unsafe-nth &vals 0) 2)
+           (= @(Array.unsafe-nth &vals 1) 5)
+           (= @(Array.unsafe-nth &vals 2) 7)))
+    "pop drains in ascending order")
+
+  (assert-equal test
+    true
+    (let [a0 (IntHeap.empty)
+          a1 (IntHeap.insert 4 &a0)
+          a2 (IntHeap.insert 1 &a1)
+          b0 (IntHeap.empty)
+          b1 (IntHeap.insert 3 &b0)
+          b2 (IntHeap.insert 2 &b1)
+          merged (IntHeap.merge &a2 &b2)]
+      (and (= (IntHeap.length &merged) 4l)
+           (match (IntHeap.peek &merged)
+             (Maybe.Just v) (= v 1)
+             (Maybe.Nothing) false)))
+    "merge preserves all elements and heap property")
+
+  (assert-equal test
+    true
+    (let [h (build-descending-heap 100000)]
+      (and (= (IntHeap.length &h) 100000l)
+           (match (IntHeap.peek &h)
+             (Maybe.Just v) (= v 1)
+             (Maybe.Nothing) false)))
+    "descending insert of 100k items does not blow the stack via merge-roots")
+
+  (assert-equal test
+    11
+    (let [h0 (IntHeap.empty)
+          h1 (IntHeap.insert 5 &h0)
+          h2 (IntHeap.insert 2 &h1)
+          h3 (IntHeap.insert 4 &h2)]
+      (IntHeap.reduce &(fn [acc x] (+ acc x)) 0 &h3))
+    "reduce sums all heap values")
+
+  (assert-equal test
+    true
+    (let [h0 (IntHeap.empty)
+          h1 (IntHeap.insert 5 &h0)
+          h2 (IntHeap.insert 2 &h1)
+          h3 (IntHeap.insert 4 &h2)
+          arr (IntHeap.to-array &h3)]
+      (= (Array.length &arr) 3))
+    "to-array has count elements")
+
+  (assert-memory-balance test heap-branch-lifecycle 0l "persistent heap branch lifecycle is memory-balanced")
+)

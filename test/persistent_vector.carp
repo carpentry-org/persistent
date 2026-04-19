@@ -1,0 +1,117 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-vector IntVec Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn vec-branch-lifecycle []
+  (let [v0 (IntVec.empty)
+        v1 (IntVec.push-back 1 &v0)
+        v2 (IntVec.push-back 2 &v1)
+        v3 (IntVec.push-back 3 &v1)
+        v4 (match (IntVec.assoc 0 9 &v2)
+             (Maybe.Just v) v
+             (Maybe.Nothing) v2)
+        v5 (match (IntVec.pop-back &v4)
+             (Maybe.Just p) @(Pair.b &p)
+             (Maybe.Nothing) v4)]
+    (do
+      (ignore v3)
+      (ignore v5))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [v (IntVec.empty)]
+      (IntVec.empty? &v))
+    "empty vector reports empty")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 10 &v0)
+          v2 (IntVec.push-back 20 &v1)
+          v3 (IntVec.push-back 30 &v2)]
+      (and (= (IntVec.length &v3) 3l)
+           (match (IntVec.get 0 &v3)
+             (Maybe.Just v) (= v 10)
+             (Maybe.Nothing) false)
+           (match (IntVec.get 2 &v3)
+             (Maybe.Just v) (= v 30)
+             (Maybe.Nothing) false)))
+    "push-back/get works")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 10 &v0)
+          v2 (IntVec.push-back 20 &v1)
+          assoc-res (IntVec.assoc 1 99 &v2)]
+      (and (match assoc-res
+             (Maybe.Just v)
+               (match (IntVec.get 1 &v)
+                 (Maybe.Just x) (= x 99)
+                 (Maybe.Nothing) false)
+             (Maybe.Nothing) false)
+           (match (IntVec.get 1 &v2)
+             (Maybe.Just v) (= v 20)
+             (Maybe.Nothing) false)))
+    "assoc updates index while preserving prior version")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 10 &v0)
+          v2 (IntVec.push-back 20 &v1)
+          v3 (IntVec.push-back 30 &v2)]
+      (match (IntVec.pop-back &v3)
+        (Maybe.Nothing) false
+        (Maybe.Just p)
+          (let [value @(Pair.a &p)
+                v4 @(Pair.b &p)]
+            (and (= value 30)
+                 (= (IntVec.length &v4) 2l)
+                 (Maybe.nothing? &(IntVec.get 2 &v4))))))
+    "pop-back removes tail")
+
+  (assert-equal test
+    60
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 10 &v0)
+          v2 (IntVec.push-back 20 &v1)
+          v3 (IntVec.push-back 30 &v2)]
+      (IntVec.reduce &(fn [acc x] (+ acc x)) 0 &v3))
+    "reduce folds in index order")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 1 &v0)
+          v2 (IntVec.push-back 2 &v1)
+          v3 (IntVec.push-back 3 &v2)
+          arr (IntVec.to-array &v3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "to-array in index order")
+
+  (assert-equal test
+    true
+    (let [a (IntVec.push-back 2 &(IntVec.push-back 1 &(IntVec.empty)))
+          b (IntVec.push-back 2 &(IntVec.push-back 1 &(IntVec.empty)))
+          c (IntVec.push-back 9 &(IntVec.push-back 1 &(IntVec.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is pairwise on index-ordered values")
+
+  (assert-memory-balance test vec-branch-lifecycle 0l "persistent vector branch lifecycle is memory-balanced")
+)

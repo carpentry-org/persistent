@@ -1,0 +1,86 @@
+(load "Test.carp")
+(use Test)
+(load "git@github.com:carpentry-org/rc@0.1.1")
+(load "../persistent.carp")
+(load "test_harness.carp")
+
+(TestHarness.configure-build)
+
+(Persistent.define-ord-set IntSet Int)
+
+(defn assert-memory-balance [state f expected-balance descr]
+  (do
+    (Debug.reset-memory-balance!)
+    (f)
+    (assert-equal state expected-balance (Debug.memory-balance) descr)))
+
+(defn set-branch-lifecycle []
+  (let [s0 (IntSet.empty)
+        s1 (IntSet.insert 10 &s0)
+        s2 (IntSet.insert 5 &s1)
+        s3 (IntSet.insert 15 &s1)
+        s4 (IntSet.remove 10 &s2)]
+    (do
+      (ignore s3)
+      (ignore s4))))
+
+(deftest test
+  (assert-equal test
+    true
+    (let [s (IntSet.empty)]
+      (IntSet.empty? &s))
+    "empty ordered set reports empty")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 2 &s0)
+          s2 (IntSet.insert 1 &s1)
+          s3 (IntSet.insert 3 &s2)]
+      (and (= (IntSet.length &s3) 3l)
+           (IntSet.contains? 1 &s3)
+           (IntSet.contains? 2 &s3)
+           (IntSet.contains? 3 &s3)))
+    "insert/contains works")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 7 &s0)
+          s2 (IntSet.insert 7 &s1)]
+      (= (IntSet.length &s2) 1l))
+    "duplicate insert is idempotent")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 7 &s0)
+          s2 (IntSet.insert 8 &s1)
+          s3 (IntSet.remove 7 &s2)]
+      (and (= (IntSet.length &s3) 1l)
+           (not (IntSet.contains? 7 &s3))
+           (IntSet.contains? 8 &s3)))
+    "remove drops only target value")
+
+  (assert-equal test
+    true
+    (let [s0 (IntSet.empty)
+          s1 (IntSet.insert 3 &s0)
+          s2 (IntSet.insert 1 &s1)
+          s3 (IntSet.insert 2 &s2)
+          arr (IntSet.to-array &s3)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "to-array yields ascending order")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          b (IntSet.insert 1 &(IntSet.insert 2 &(IntSet.empty)))
+          c (IntSet.insert 3 &(IntSet.insert 1 &(IntSet.empty)))]
+      (and (= &a &b) (not (= &a &c))))
+    "= is structural regardless of insertion order")
+
+  (assert-memory-balance test set-branch-lifecycle 0l "persistent ordered set branch lifecycle is memory-balanced")
+)
