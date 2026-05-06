@@ -1,6 +1,5 @@
 (load "Test.carp")
 (use Test)
-(load "git@github.com:carpentry-org/rc@0.1.1")
 (load "../persistent.carp")
 (load "test_harness.carp")
 
