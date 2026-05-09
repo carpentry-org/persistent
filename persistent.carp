@@ -952,40 +952,12 @@ This generates:
            (defn = [a-ref b-ref]
              (if (/= @(%trie-count a-ref) @(%trie-count b-ref))
                false
-               (let-do [stack (the (Array (Pair (Maybe %node-rc-type) Bool)) [])
-                        path (the (Array %key-part-type) [])
-                        equal true
-                        keep-going true]
-                 (set! stack (Array.push-back stack (Pair.init (Maybe.Just @(%trie-root a-ref)) false)))
-                 (while-do (and keep-going (> (Array.length &stack) 0))
-                   (let [frame (Array.pop-back! &stack)
-                         maybe-rc (Pair.a &frame)
-                         is-exit @(Pair.b &frame)]
-                     (match-ref maybe-rc
-                       (Maybe.Nothing) ()
-                       (Maybe.Just rc)
-                         (let [node (%node-rc-get rc)]
-                           (if is-exit
-                             (match-ref (%node-label &node)
-                               (Maybe.Nothing) ()
-                               (Maybe.Just _) (ignore (Array.pop-back! &path)))
-                             (do
-                               (set! stack (Array.push-back stack (Pair.init @(%node-sibling &node) false)))
-                               (set! stack (Array.push-back stack (Pair.init (Maybe.Just @rc) true)))
-                               (match-ref (%node-label &node)
-                                 (Maybe.Nothing) ()
-                                 (Maybe.Just l) (set! path (Array.push-back path @l)))
-                               (match-ref (%node-value &node)
-                                 (Maybe.Nothing) ()
-                                 (Maybe.Just v)
-                                   (match (get &path b-ref)
-                                     (Maybe.Nothing)
-                                       (do (set! equal false) (set! keep-going false))
-                                     (Maybe.Just bv)
-                                       (when (/= &bv v)
-                                         (do (set! equal false) (set! keep-going false)))))
-                               (set! stack (Array.push-back stack (Pair.init @(%node-child &node) false)))))))))
-                 equal)))
+               (reduce &(fn [acc p]
+                 (and acc
+                      (match (get (Pair.a &p) b-ref)
+                        (Maybe.Nothing) false
+                        (Maybe.Just bv) (= &bv (Pair.b &p)))))
+                 true a-ref)))
            (implements = %name-eq)
 
 
@@ -1940,13 +1912,6 @@ Example:
   (Persistent.define-hash-map StrIntMap String Int)")
   (defmacro define-hash-map [name key-type value-type]
     (let [trie-type (Symbol.concat [name 'Trie])
-          trie-node-type (Symbol.concat [trie-type 'Node])
-          trie-node-rc-type (Symbol.concat [trie-type 'NodeRc])
-          trie-node-rc-get (Symbol.prefix trie-node-rc-type 'get)
-          trie-node-value (Symbol.prefix trie-node-type 'value)
-          trie-node-child (Symbol.prefix trie-node-type 'child)
-          trie-node-sibling (Symbol.prefix trie-node-type 'sibling)
-          trie-root (Symbol.prefix trie-type 'root)
           map-init (Symbol.prefix name 'init)
           map-trie (Symbol.prefix name 'trie)
           map-count (Symbol.prefix name 'count)
@@ -2149,35 +2114,12 @@ Example:
            (defn = [a-ref b-ref]
              (if (/= @(%map-count a-ref) @(%map-count b-ref))
                false
-               (let-do [stack (the (Array (Maybe %trie-node-rc-type)) [])
-                        equal true
-                        keep-going true]
-                 (set! stack (Array.push-back stack (Maybe.Just @(%trie-root (%map-trie a-ref)))))
-                 (while-do (and keep-going (> (Array.length &stack) 0))
-                   (match (Array.pop-back! &stack)
-                     (Maybe.Nothing) ()
-                     (Maybe.Just rc)
-                       (let [node (%trie-node-rc-get &rc)]
-                         (do
-                           (set! stack (Array.push-back stack @(%trie-node-sibling &node)))
-                           (set! stack (Array.push-back stack @(%trie-node-child &node)))
-                           (match-ref (%trie-node-value &node)
-                             (Maybe.Nothing) ()
-                             (Maybe.Just bucket)
-                               (let-do [n (Array.length bucket)
-                                        i 0]
-                                 (while-do (and keep-going (< i n))
-                                   (let [pair (Array.unsafe-nth bucket i)
-                                         pair-key (Pair.a pair)
-                                         pair-val @(Pair.b pair)]
-                                     (match (get pair-key b-ref)
-                                       (Maybe.Nothing)
-                                         (do (set! equal false) (set! keep-going false))
-                                       (Maybe.Just bv)
-                                         (when (/= &bv &pair-val)
-                                           (do (set! equal false) (set! keep-going false)))))
-                                   (set! i (Int.inc i)))))))))
-                 equal)))
+               (reduce &(fn [acc p]
+                 (and acc
+                      (match (get (Pair.a &p) b-ref)
+                        (Maybe.Nothing) false
+                        (Maybe.Just bv) (= bv @(Pair.b &p)))))
+                 true a-ref)))
            (implements = %name-eq)
 
            (doc str "Diagnostic formatting for a hash map.")
