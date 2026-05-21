@@ -16,8 +16,7 @@
 
 (defn build-long-key [n]
   (let-do [k (the (Array Int) [])]
-    (for [i 0 n]
-      (set! k (Array.push-back k i)))
+    (for [i 0 n] (set! k (Array.push-back k i)))
     k))
 
 (defn trie-branch-lifecycle []
@@ -35,21 +34,18 @@
 (deftest test
   (assert-equal test
     true
-    (let [t (IntTrie.empty)]
-      (IntTrie.empty? &t))
+    (let [t (IntTrie.empty)] (IntTrie.empty? &t))
     "empty trie reports empty")
 
   (assert-equal test
     0l
-    (let [t (IntTrie.empty)]
-      (IntTrie.length &t))
+    (let [t (IntTrie.empty)] (IntTrie.length &t))
     "empty trie has size 0")
 
   (assert-equal test
     true
     (let [t (IntTrie.empty)
-          k [1 2 3]]
-      (Maybe.nothing? &(IntTrie.get &k &t)))
+          k [1 2 3]] (Maybe.nothing? &(IntTrie.get &k &t)))
     "get on empty trie returns Nothing")
 
   (assert-equal test
@@ -67,8 +63,7 @@
     (let [t0 (IntTrie.empty)
           k [1 2 3]
           t1 (IntTrie.insert &k @"alpha" &t0)]
-      (and (Maybe.nothing? &(IntTrie.get &k &t0))
-           (IntTrie.contains? &k &t1)))
+      (and (Maybe.nothing? &(IntTrie.get &k &t0)) (IntTrie.contains? &k &t1)))
     "persistence keeps previous version unchanged")
 
   (assert-equal test
@@ -129,10 +124,11 @@
           t0 (IntTrie.empty)
           t1 (IntTrie.insert &empty-key @"root" &t0)
           t2 (IntTrie.remove &empty-key &t1)]
-      (and (match (IntTrie.get &empty-key &t1)
-             (Maybe.Just v) (= v @"root")
-             (Maybe.Nothing) false)
-           (= (IntTrie.length &t2) 0l)))
+      (and
+        (match (IntTrie.get &empty-key &t1)
+          (Maybe.Just v) (= v @"root")
+          (Maybe.Nothing) false)
+        (= (IntTrie.length &t2) 0l)))
     "empty key is supported at root")
 
   (assert-equal test
@@ -163,8 +159,7 @@
           k1 [1 2]
           t1 (IntTrie.insert &k1 @"a" &t0)
           vs (IntTrie.values &t1)]
-      (and (= (Array.length &vs) 1)
-           (= @(Array.unsafe-nth &vs 0) @"a")))
+      (and (= (Array.length &vs) 1) (= @(Array.unsafe-nth &vs 0) @"a")))
     "values collects into Array")
 
   (assert-equal test
@@ -173,9 +168,62 @@
           k2 [1 2 3]
           a (IntTrie.insert &k2 @"b" &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))
           b (IntTrie.insert &k1 @"a" &(IntTrie.insert &k2 @"b" &(IntTrie.empty)))
-          c (IntTrie.insert &k2 @"DIFF" &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))]
+          c (IntTrie.insert &k2
+                            @"DIFF"
+                            &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural across insertion orders")
 
-  (assert-memory-balance test trie-branch-lifecycle 0l "persistent trie branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [k1 [1 2]
+          k2 [3 4]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 20 &t1)
+          mapped (IntTrieInt.map-values &(fn [v] (+ v 100)) &t2)]
+      (and (= (IntTrieInt.length &mapped) 2l)
+           (match (IntTrieInt.get &k1 &mapped)
+             (Maybe.Just v) (= v 110)
+             (Maybe.Nothing) false)
+           (match (IntTrieInt.get &k2 &mapped)
+             (Maybe.Just v) (= v 120)
+             (Maybe.Nothing) false)))
+    "map-values transforms values keeping keys")
+
+  (assert-equal test
+    true
+    (let [t (IntTrieInt.empty)
+          mapped (IntTrieInt.map-values &(fn [v] (+ v 1)) &t)]
+      (IntTrieInt.empty? &mapped))
+    "map-values over empty trie yields empty")
+
+  (assert-equal test
+    true
+    (let [k1 [1 2]
+          k2 [3 4]
+          k3 [5 6]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 20 &t1)
+          t3 (IntTrieInt.insert &k3 5 &t2)
+          filtered (IntTrieInt.filter &(fn [p] (> @(Pair.b p) 8)) &t3)]
+      (and (= (IntTrieInt.length &filtered) 2l)
+           (IntTrieInt.contains? &k1 &filtered)
+           (IntTrieInt.contains? &k2 &filtered)
+           (not (IntTrieInt.contains? &k3 &filtered))))
+    "filter keeps entries matching predicate")
+
+  (assert-equal test
+    true
+    (let [k1 [1]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          filtered (IntTrieInt.filter &(fn [p] false) &t1)]
+      (IntTrieInt.empty? &filtered))
+    "filter with always-false yields empty trie")
+
+  (assert-memory-balance test
+                         trie-branch-lifecycle
+                         0l
+                         "persistent trie branch lifecycle is memory-balanced"))

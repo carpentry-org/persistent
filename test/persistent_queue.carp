@@ -14,23 +14,16 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn build-long-queue [n]
-  (let-do [q (IntQueue.empty)]
-    (for [i 0 n]
-      (set! q (IntQueue.enqueue i &q)))
-    q))
+  (let-do [q (IntQueue.empty)] (for [i 0 n] (set! q (IntQueue.enqueue i &q))) q))
 
 (defn queue-branch-lifecycle []
   (let [q0 (IntQueue.empty)
         q1 (IntQueue.enqueue 1 &q0)
         q2 (IntQueue.enqueue 2 &q1)
         q3 (IntQueue.enqueue 3 &q1)]
-    (do
-      (ignore q2)
-      (ignore q3))))
+    (do (ignore q2) (ignore q3))))
 
-(defn queue-drain-values [q-ref]
-  (let [out0 []]
-    (queue-drain-iter q-ref &out0)))
+(defn queue-drain-values [q-ref] (let [out0 []] (queue-drain-iter q-ref &out0)))
 
 (defn queue-drain-iter [q-ref out-ref]
   (match (IntQueue.dequeue q-ref)
@@ -38,33 +31,27 @@
     (Maybe.Just p)
       (let [value @(Pair.a &p)
             next-q @(Pair.b &p)]
-        (do
-          (Array.push-back! out-ref value)
-          (queue-drain-iter &next-q out-ref)))))
+        (do (Array.push-back! out-ref value) (queue-drain-iter &next-q out-ref)))))
 
 (deftest test
   (assert-equal test
     true
-    (let [q (IntQueue.empty)]
-      (IntQueue.empty? &q))
+    (let [q (IntQueue.empty)] (IntQueue.empty? &q))
     "empty queue reports empty")
 
   (assert-equal test
     0l
-    (let [q (IntQueue.empty)]
-      (IntQueue.length &q))
+    (let [q (IntQueue.empty)] (IntQueue.length &q))
     "empty queue has length 0")
 
   (assert-equal test
     true
-    (let [q (IntQueue.empty)]
-      (Maybe.nothing? &(IntQueue.peek &q)))
+    (let [q (IntQueue.empty)] (Maybe.nothing? &(IntQueue.peek &q)))
     "peek on empty queue returns Nothing")
 
   (assert-equal test
     true
-    (let [q (IntQueue.empty)]
-      (Maybe.nothing? &(IntQueue.dequeue &q)))
+    (let [q (IntQueue.empty)] (Maybe.nothing? &(IntQueue.dequeue &q)))
     "dequeue on empty queue returns Nothing")
 
   (assert-equal test
@@ -73,9 +60,7 @@
           q1 (IntQueue.enqueue 1 &q0)
           q2 (IntQueue.enqueue 2 &q1)
           q3 (IntQueue.enqueue 3 &q2)]
-      (match (IntQueue.peek &q3)
-        (Maybe.Just v) v
-        (Maybe.Nothing) -1))
+      (match (IntQueue.peek &q3) (Maybe.Just v) v (Maybe.Nothing) -1))
     "peek returns FIFO front")
 
   (assert-equal test
@@ -125,8 +110,7 @@
         (Maybe.Just p)
           (let [v @(Pair.a &p)
                 q2 @(Pair.b &p)]
-            (and (= v 0)
-                 (= (IntQueue.length &q2) 99999l)))))
+            (and (= v 0) (= (IntQueue.length &q2) 99999l)))))
     "first dequeue on a 100k-rear queue reverses without blowing the C stack")
 
   (assert-equal test
@@ -155,11 +139,67 @@
     (let [a0 (IntQueue.empty)
           a1 (IntQueue.enqueue 1 &a0)
           a2 (IntQueue.enqueue 2 &a1)
-          b (match (IntQueue.dequeue &(IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0)))
-              (Maybe.Just p) (IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0))
-              (Maybe.Nothing) a0)]
+          b (match (IntQueue.dequeue
+              &(IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0)))
+            (Maybe.Just p) (IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0))
+            (Maybe.Nothing) a0)]
       (= &a2 &b))
     "= is structural across internal front/rear splits")
 
-  (assert-memory-balance test queue-branch-lifecycle 0l "persistent queue branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)
+          mapped (IntQueue.map &(fn [x] (+ x 10)) &q3)
+          arr (IntQueue.to-array &mapped)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 11)
+           (= @(Array.unsafe-nth &arr 1) 12)
+           (= @(Array.unsafe-nth &arr 2) 13)))
+    "map applies function preserving FIFO order")
+
+  (assert-equal test
+    true
+    (let [q (IntQueue.empty)
+          m (IntQueue.map &(fn [x] (+ x 1)) &q)]
+      (IntQueue.empty? &m))
+    "map over empty queue yields empty")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          q3 (IntQueue.enqueue 3 &q2)
+          q4 (IntQueue.enqueue 4 &q3)
+          filtered (IntQueue.filter &(fn [x] (> @x 2)) &q4)
+          arr (IntQueue.to-array &filtered)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 3)
+           (= @(Array.unsafe-nth &arr 1) 4)))
+    "filter keeps elements matching predicate in FIFO order")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          filtered (IntQueue.filter &(fn [x] false) &q2)]
+      (IntQueue.empty? &filtered))
+    "filter with always-false yields empty queue")
+
+  (assert-equal test
+    true
+    (let [q0 (IntQueue.empty)
+          q1 (IntQueue.enqueue 1 &q0)
+          q2 (IntQueue.enqueue 2 &q1)
+          filtered (IntQueue.filter &(fn [x] true) &q2)]
+      (= &filtered &q2))
+    "filter with always-true preserves all elements")
+
+  (assert-memory-balance test
+                         queue-branch-lifecycle
+                         0l
+                         "persistent queue branch lifecycle is memory-balanced"))
