@@ -15,8 +15,7 @@
 
 (defn build-long-back-deque [n]
   (let-do [d (IntDeque.empty)]
-    (for [i 0 n]
-      (set! d (IntDeque.push-back i &d)))
+    (for [i 0 n] (set! d (IntDeque.push-back i &d)))
     d))
 
 (defn deque-branch-lifecycle []
@@ -25,13 +24,10 @@
         d2 (IntDeque.push-back 2 &d1)
         d3 (IntDeque.push-front 0 &d2)
         d4 (IntDeque.push-back 3 &d3)]
-    (do
-      (ignore d2)
-      (ignore d4))))
+    (do (ignore d2) (ignore d4))))
 
 (defn pop-front-values [dq-ref]
-  (let [out0 []]
-    (pop-front-values-iter dq-ref &out0)))
+  (let [out0 []] (pop-front-values-iter dq-ref &out0)))
 
 (defn pop-front-values-iter [dq-ref out-ref]
   (match (IntDeque.pop-front dq-ref)
@@ -46,14 +42,12 @@
 (deftest test
   (assert-equal test
     true
-    (let [d (IntDeque.empty)]
-      (IntDeque.empty? &d))
+    (let [d (IntDeque.empty)] (IntDeque.empty? &d))
     "empty deque reports empty")
 
   (assert-equal test
     0l
-    (let [d (IntDeque.empty)]
-      (IntDeque.length &d))
+    (let [d (IntDeque.empty)] (IntDeque.length &d))
     "empty deque has length 0")
 
   (assert-equal test
@@ -62,12 +56,13 @@
           d1 (IntDeque.push-back 1 &d0)
           d2 (IntDeque.push-front 0 &d1)
           d3 (IntDeque.push-back 2 &d2)]
-      (and (match (IntDeque.peek-front &d3)
-             (Maybe.Just v) (= v 0)
-             (Maybe.Nothing) false)
-           (match (IntDeque.peek-back &d3)
-             (Maybe.Just v) (= v 2)
-             (Maybe.Nothing) false)))
+      (and
+        (match (IntDeque.peek-front &d3)
+          (Maybe.Just v) (= v 0)
+          (Maybe.Nothing) false)
+        (match (IntDeque.peek-back &d3)
+          (Maybe.Just v) (= v 2)
+          (Maybe.Nothing) false)))
     "peek-front/peek-back read both ends")
 
   (assert-equal test
@@ -119,8 +114,7 @@
         (Maybe.Just p)
           (let [v @(Pair.a &p)
                 d2 @(Pair.b &p)]
-            (and (= v 0)
-                 (= (IntDeque.length &d2) 99999l)))))
+            (and (= v 0) (= (IntDeque.length &d2) 99999l)))))
     "pop-front on 100k rear-only deque rebalances without blowing the C stack")
 
   (assert-equal test
@@ -153,5 +147,60 @@
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of front/rear split")
 
-  (assert-memory-balance test deque-branch-lifecycle 0l "persistent deque branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          d3 (IntDeque.push-front 0 &d2)
+          mapped (IntDeque.map &(fn [x] (+ x 10)) &d3)
+          arr (IntDeque.to-array &mapped)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 10)
+           (= @(Array.unsafe-nth &arr 1) 11)
+           (= @(Array.unsafe-nth &arr 2) 12)))
+    "map applies function preserving front-to-back order")
+
+  (assert-equal test
+    true
+    (let [d (IntDeque.empty)
+          m (IntDeque.map &(fn [x] (+ x 1)) &d)]
+      (IntDeque.empty? &m))
+    "map over empty deque yields empty")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          d3 (IntDeque.push-back 3 &d2)
+          d4 (IntDeque.push-front 0 &d3)
+          filtered (IntDeque.filter &(fn [x] (> @x 1)) &d4)
+          arr (IntDeque.to-array &filtered)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 2)
+           (= @(Array.unsafe-nth &arr 1) 3)))
+    "filter keeps elements matching predicate in order")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          filtered (IntDeque.filter &(fn [x] false) &d2)]
+      (IntDeque.empty? &filtered))
+    "filter with always-false yields empty deque")
+
+  (assert-equal test
+    true
+    (let [d0 (IntDeque.empty)
+          d1 (IntDeque.push-back 1 &d0)
+          d2 (IntDeque.push-back 2 &d1)
+          filtered (IntDeque.filter &(fn [x] true) &d2)]
+      (= &filtered &d2))
+    "filter with always-true preserves all elements")
+
+  (assert-memory-balance test
+                         deque-branch-lifecycle
+                         0l
+                         "persistent deque branch lifecycle is memory-balanced"))

@@ -10,8 +10,7 @@
 
 (defn build-ascending [n]
   (let-do [m (IntIntOMap.empty)]
-    (for [i 0 n]
-      (set! m (IntIntOMap.insert i i &m)))
+    (for [i 0 n] (set! m (IntIntOMap.insert i i &m)))
     m))
 
 (defn assert-memory-balance [state f expected-balance descr]
@@ -27,15 +26,12 @@
         m3 (IntStrMap.insert 3 @"c" &m1)
         m4 (IntStrMap.remove 2 &m2)
         m5 (IntStrMap.remove 1 &m4)]
-    (do
-      (ignore m3)
-      (ignore m5))))
+    (do (ignore m3) (ignore m5))))
 
 (deftest test
   (assert-equal test
     true
-    (let [m (IntStrMap.empty)]
-      (IntStrMap.empty? &m))
+    (let [m (IntStrMap.empty)] (IntStrMap.empty? &m))
     "empty ordered map reports empty")
 
   (assert-equal test
@@ -87,20 +83,20 @@
           m1 (IntStrMap.insert 2 @"two" &m0)
           m2 (IntStrMap.insert 1 @"one" &m1)
           m3 (IntStrMap.insert 3 @"three" &m2)]
-      (and (match (IntStrMap.min-key &m3)
-             (Maybe.Just v) (= v 1)
-             (Maybe.Nothing) false)
-           (match (IntStrMap.max-key &m3)
-             (Maybe.Just v) (= v 3)
-             (Maybe.Nothing) false)))
+      (and
+        (match (IntStrMap.min-key &m3)
+          (Maybe.Just v) (= v 1)
+          (Maybe.Nothing) false)
+        (match (IntStrMap.max-key &m3)
+          (Maybe.Just v) (= v 3)
+          (Maybe.Nothing) false)))
     "min-key and max-key follow ordering")
 
   (assert-equal test
     true
     (let [m0 (IntStrMap.empty)
           m1 (IntStrMap.insert 1 @"one" &m0)]
-      (and (Maybe.nothing? &(IntStrMap.get 1 &m0))
-           (IntStrMap.contains? 1 &m1)))
+      (and (Maybe.nothing? &(IntStrMap.get 1 &m0)) (IntStrMap.contains? 1 &m1)))
     "persistence keeps prior map unchanged")
 
   (assert-equal test
@@ -140,11 +136,75 @@
 
   (assert-equal test
     true
-    (let [a (IntStrMap.insert 2 @"b" &(IntStrMap.insert 1 @"a" &(IntStrMap.empty)))
-          b (IntStrMap.insert 1 @"a" &(IntStrMap.insert 2 @"b" &(IntStrMap.empty)))
-          c (IntStrMap.insert 1 @"a" &(IntStrMap.insert 2 @"c" &(IntStrMap.empty)))]
+    (let [a (IntStrMap.insert 2
+                              @"b"
+                              &(IntStrMap.insert 1 @"a" &(IntStrMap.empty)))
+          b (IntStrMap.insert 1
+                              @"a"
+                              &(IntStrMap.insert 2 @"b" &(IntStrMap.empty)))
+          c (IntStrMap.insert 1
+                              @"a"
+                              &(IntStrMap.insert 2 @"c" &(IntStrMap.empty)))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
-  (assert-memory-balance test map-branch-lifecycle 0l "persistent ordered map branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [m0 (IntIntOMap.empty)
+          m1 (IntIntOMap.insert 1 10 &m0)
+          m2 (IntIntOMap.insert 2 20 &m1)
+          m3 (IntIntOMap.insert 3 30 &m2)
+          mapped (IntIntOMap.map-values &(fn [v] (+ v 100)) &m3)]
+      (and (= (IntIntOMap.length &mapped) 3l)
+           (match (IntIntOMap.get 1 &mapped)
+             (Maybe.Just v) (= v 110)
+             (Maybe.Nothing) false)
+           (match (IntIntOMap.get 2 &mapped)
+             (Maybe.Just v) (= v 120)
+             (Maybe.Nothing) false)
+           (match (IntIntOMap.get 3 &mapped)
+             (Maybe.Just v) (= v 130)
+             (Maybe.Nothing) false)))
+    "map-values transforms values keeping keys")
+
+  (assert-equal test
+    true
+    (let [m (IntIntOMap.empty)
+          mapped (IntIntOMap.map-values &(fn [v] (+ v 1)) &m)]
+      (IntIntOMap.empty? &mapped))
+    "map-values over empty map yields empty")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntOMap.empty)
+          m1 (IntIntOMap.insert 1 10 &m0)
+          m2 (IntIntOMap.insert 2 5 &m1)
+          m3 (IntIntOMap.insert 3 30 &m2)
+          filtered (IntIntOMap.filter &(fn [p] (> @(Pair.b p) 8)) &m3)]
+      (and (= (IntIntOMap.length &filtered) 2l)
+           (IntIntOMap.contains? 1 &filtered)
+           (not (IntIntOMap.contains? 2 &filtered))
+           (IntIntOMap.contains? 3 &filtered)))
+    "filter keeps entries matching predicate")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntOMap.empty)
+          m1 (IntIntOMap.insert 1 10 &m0)
+          filtered (IntIntOMap.filter &(fn [p] false) &m1)]
+      (IntIntOMap.empty? &filtered))
+    "filter with always-false yields empty map")
+
+  (assert-equal test
+    true
+    (let [m0 (IntIntOMap.empty)
+          m1 (IntIntOMap.insert 1 10 &m0)
+          m2 (IntIntOMap.insert 2 20 &m1)
+          filtered (IntIntOMap.filter &(fn [p] true) &m2)]
+      (= &filtered &m2))
+    "filter with always-true preserves all entries")
+
+  (assert-memory-balance test
+                         map-branch-lifecycle
+                         0l
+                         "persistent ordered map branch lifecycle is memory-balanced"))

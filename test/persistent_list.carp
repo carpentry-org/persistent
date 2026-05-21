@@ -14,30 +14,23 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn build-long-list [n]
-  (let-do [l (IntList.empty)]
-    (for [i 0 n]
-      (set! l (IntList.prepend i &l)))
-    l))
+  (let-do [l (IntList.empty)] (for [i 0 n] (set! l (IntList.prepend i &l))) l))
 
 (defn list-branch-lifecycle []
   (let [base (IntList.singleton 1)
         left (IntList.prepend 2 &base)
         right (IntList.prepend 3 &base)]
-    (do
-      (ignore left)
-      (ignore right))))
+    (do (ignore left) (ignore right))))
 
 (deftest test
   (assert-equal test
     true
-    (let [l (IntList.empty)]
-      (IntList.empty? &l))
+    (let [l (IntList.empty)] (IntList.empty? &l))
     "empty list reports empty")
 
   (assert-equal test
     0l
-    (let [l (IntList.empty)]
-      (IntList.length &l))
+    (let [l (IntList.empty)] (IntList.length &l))
     "empty list has length 0")
 
   (assert-equal test
@@ -53,9 +46,7 @@
     (let [l0 (IntList.empty)
           l1 (IntList.prepend 1 &l0)
           l2 (IntList.prepend 2 &l1)]
-      (match (IntList.head &l2)
-        (Maybe.Just v) v
-        (Maybe.Nothing) -1))
+      (match (IntList.head &l2) (Maybe.Just v) v (Maybe.Nothing) -1))
     "head reads first value")
 
   (assert-equal test
@@ -65,9 +56,7 @@
           l2 (IntList.prepend 2 &l1)]
       (match (IntList.tail &l2)
         (Maybe.Just t)
-          (match (IntList.head &t)
-            (Maybe.Just v) v
-            (Maybe.Nothing) -1)
+          (match (IntList.head &t) (Maybe.Just v) v (Maybe.Nothing) -1)
         (Maybe.Nothing) -1))
     "tail exposes next value")
 
@@ -135,10 +124,89 @@
           c0 (IntList.empty)
           c1 (IntList.prepend 9 &c0)
           c2 (IntList.prepend 1 &c1)]
-      (and (= &a2 &b2)
-           (not (= &a2 &c2))
-           (not (= &a2 &a1))))
+      (and (= &a2 &b2) (not (= &a2 &c2)) (not (= &a2 &a1))))
     "= is structural: equal shape + elements")
 
-  (assert-memory-balance test list-branch-lifecycle 0l "persistent branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [l (IntList.empty)
+          r (IntList.reverse &l)] (IntList.empty? &r))
+    "reverse of empty list is empty")
+
+  (assert-equal test
+    true
+    (let [l (IntList.singleton 42)
+          r (IntList.reverse &l)] (= &r &l))
+    "reverse of singleton is itself")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)
+          rev (IntList.reverse &l3)
+          arr (IntList.to-array &rev)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 1) 2)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "reverse reverses element order")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)
+          mapped (IntList.map &(fn [x] (+ x 10)) &l3)
+          arr (IntList.to-array &mapped)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 13)
+           (= @(Array.unsafe-nth &arr 1) 12)
+           (= @(Array.unsafe-nth &arr 2) 11)))
+    "map applies function preserving order")
+
+  (assert-equal test
+    true
+    (let [l (IntList.empty)
+          m (IntList.map &(fn [x] (+ x 1)) &l)]
+      (IntList.empty? &m))
+    "map over empty list yields empty")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)
+          l4 (IntList.prepend 4 &l3)
+          filtered (IntList.filter &(fn [x] (> @x 2)) &l4)
+          arr (IntList.to-array &filtered)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 4)
+           (= @(Array.unsafe-nth &arr 1) 3)))
+    "filter keeps elements matching predicate in order")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          filtered (IntList.filter &(fn [x] false) &l2)]
+      (IntList.empty? &filtered))
+    "filter with always-false yields empty")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          filtered (IntList.filter &(fn [x] true) &l2)]
+      (= &filtered &l2))
+    "filter with always-true preserves all elements")
+
+  (assert-memory-balance test
+                         list-branch-lifecycle
+                         0l
+                         "persistent branch lifecycle is memory-balanced"))

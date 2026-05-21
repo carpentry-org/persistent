@@ -201,6 +201,32 @@ This generates:
                   (Maybe.Just b-head) (%node-rc-ptr-eq &a-head &b-head)
                   (Maybe.Nothing) false)))
 
+          (doc reverse "Return a reversed copy of the list.")
+          (sig reverse (Fn [(Ref %name q)] %name))
+          (defn reverse [list-ref]
+            (reduce &(fn [acc x] (prepend x &acc)) (empty) list-ref))
+
+          (doc map
+            "Apply a function to each element, returning a new list in the same order.")
+          (sig map
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map [f list-ref]
+            (let [rev (reduce &(fn [acc x] (prepend (~f x) &acc))
+                              (empty)
+                              list-ref)]
+              (reverse &rev)))
+
+          (doc filter
+            "Keep only elements satisfying a predicate, preserving order.")
+          (sig filter
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] %name))
+          (defn filter [pred list-ref]
+            (let [rev (reduce
+                    &(fn [acc x] (if (~pred &x) (prepend x &acc) acc))
+                    (empty)
+                    list-ref)]
+              (reverse &rev)))
+
           (doc str "Diagnostic formatting for a list.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [list-ref]
@@ -365,6 +391,23 @@ This generates:
               (let [aa (to-array a-ref)
                     ab (to-array b-ref)] (= &aa &ab))))
           (implements = %name-eq)
+
+          (doc map
+            "Apply a function to each element, returning a new queue in FIFO order.")
+          (sig map
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map [f q-ref]
+            (reduce &(fn [acc x] (enqueue (~f x) &acc)) (empty) q-ref))
+
+          (doc filter
+            "Keep only elements satisfying a predicate, preserving FIFO order.")
+          (sig filter
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] %name))
+          (defn filter [pred q-ref]
+            (reduce
+              &(fn [acc x] (if (~pred &x) (enqueue x &acc) acc))
+              (empty)
+              q-ref))
 
           (doc str "Diagnostic formatting for a queue.")
           (sig str (Fn [(Ref %name q)] String))
@@ -1048,6 +1091,32 @@ This generates:
                 a-ref)))
           (implements = %name-eq)
 
+          (doc map-values
+            "Apply a function to each value, returning a new trie with the same keys.")
+          (sig map-values
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map-values [f trie-ref]
+            (reduce
+              &(fn [acc p] (insert (Pair.a &p) (~f @(Pair.b &p)) &acc))
+              (empty)
+              trie-ref))
+
+          (doc filter
+            "Keep only entries whose `(Pair key value)` satisfies a predicate.")
+          (sig filter
+               (Fn
+                 [(Ref
+                    (Fn [(Ref (Pair (Array %key-part-type) %value-type) q)] Bool)
+                    r)
+                  (Ref %name s)]
+                 %name))
+          (defn filter [pred trie-ref]
+            (reduce
+              &(fn [acc p]
+                (if (~pred &p) (insert (Pair.a &p) @(Pair.b &p) &acc) acc))
+              (empty)
+              trie-ref))
+
           (doc str "Diagnostic formatting for a trie.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [trie-ref]
@@ -1260,6 +1329,23 @@ This generates:
               (let [aa (to-array a-ref)
                     ab (to-array b-ref)] (= &aa &ab))))
           (implements = %name-eq)
+
+          (doc map
+            "Apply a function to each element, returning a new deque in front-to-back order.")
+          (sig map
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map [f dq-ref]
+            (reduce &(fn [acc x] (push-back (~f x) &acc)) (empty) dq-ref))
+
+          (doc filter
+            "Keep only elements satisfying a predicate, preserving front-to-back order.")
+          (sig filter
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] %name))
+          (defn filter [pred dq-ref]
+            (reduce
+              &(fn [acc x] (if (~pred &x) (push-back x &acc) acc))
+              (empty)
+              dq-ref))
 
           (doc str "Diagnostic formatting for a deque.")
           (sig str (Fn [(Ref %name q)] String))
@@ -1711,6 +1797,30 @@ This generates:
               (let [aa (to-array a-ref)
                     ab (to-array b-ref)] (= &aa &ab))))
           (implements = %name-eq)
+
+          (doc map-values
+            "Apply a function to each value, returning a new map with the same keys.")
+          (sig map-values
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map-values [f map-ref]
+            (reduce
+              &(fn [acc p] (insert @(Pair.a &p) (~f @(Pair.b &p)) &acc))
+              (empty)
+              map-ref))
+
+          (doc filter
+            "Keep only entries whose `(Pair key value)` satisfies a predicate.")
+          (sig filter
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 %name))
+          (defn filter [pred map-ref]
+            (reduce
+              &(fn [acc p]
+                (if (~pred &p) (insert @(Pair.a &p) @(Pair.b &p) &acc) acc))
+              (empty)
+              map-ref))
 
           (doc str "Diagnostic formatting for an ordered map.")
           (sig str (Fn [(Ref %name q)] String))
@@ -2309,6 +2419,44 @@ Example:
                 true
                 a-ref)))
           (implements = %name-eq)
+
+          (doc map-values
+            "Apply a function to each value, returning a new map with the same keys.")
+          (sig map-values
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map-values [f map-ref]
+            (%trie-reduce-values
+              &(fn [acc bucket]
+                (let-do [m acc]
+                  (for [i 0 (Array.length &bucket)]
+                    (let [pair-ref (Array.unsafe-nth &bucket i)]
+                      (set! m
+                            (insert @(Pair.a pair-ref)
+                                    (~f @(Pair.b pair-ref))
+                                    &m))))
+                  m))
+              (empty)
+              (%map-trie map-ref)))
+
+          (doc filter
+            "Keep only entries whose `(Pair key value)` satisfies a predicate.")
+          (sig filter
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 %name))
+          (defn filter [pred map-ref]
+            (%trie-reduce-values
+              &(fn [acc bucket]
+                (let-do [m acc]
+                  (for [i 0 (Array.length &bucket)]
+                    (let [pair-ref (Array.unsafe-nth &bucket i)]
+                      (when (~pred pair-ref)
+                        (set! m
+                              (insert @(Pair.a pair-ref) @(Pair.b pair-ref) &m)))))
+                  m))
+              (empty)
+              (%map-trie map-ref)))
 
           (doc str "Diagnostic formatting for a hash map.")
           (sig str (Fn [(Ref %name q)] String))
