@@ -19,15 +19,12 @@
         s2 (IntSet.insert 5 &s1)
         s3 (IntSet.insert 15 &s1)
         s4 (IntSet.remove 10 &s2)]
-    (do
-      (ignore s3)
-      (ignore s4))))
+    (do (ignore s3) (ignore s4))))
 
 (deftest test
   (assert-equal test
     true
-    (let [s (IntSet.empty)]
-      (IntSet.empty? &s))
+    (let [s (IntSet.empty)] (IntSet.empty? &s))
     "empty ordered set reports empty")
 
   (assert-equal test
@@ -81,5 +78,67 @@
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
-  (assert-memory-balance test set-branch-lifecycle 0l "persistent ordered set branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
+          u (IntSet.union &a &b)
+          arr (IntSet.to-array &u)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 1) 2)
+           (= @(Array.unsafe-nth &arr 2) 3)))
+    "union merges elements from both sets")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          u (IntSet.union &a &(IntSet.empty))]
+      (= &a &u))
+    "union with empty set is identity")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
+          i (IntSet.intersection &a &b)
+          arr (IntSet.to-array &i)]
+      (and (= (Array.length &arr) 1) (= @(Array.unsafe-nth &arr 0) 2)))
+    "intersection keeps only shared elements")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          b (IntSet.insert 4 &(IntSet.insert 3 &(IntSet.empty)))
+          i (IntSet.intersection &a &b)]
+      (IntSet.empty? &i))
+    "intersection of disjoint sets is empty")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))
+          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
+          d (IntSet.difference &a &b)
+          arr (IntSet.to-array &d)]
+      (and (= (Array.length &arr) 1) (= @(Array.unsafe-nth &arr 0) 1)))
+    "difference removes elements in second set")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          d (IntSet.difference &a &(IntSet.empty))]
+      (= &a &d))
+    "difference with empty set is identity")
+
+  (assert-equal test
+    true
+    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          d (IntSet.difference &a &a)]
+      (IntSet.empty? &d))
+    "difference with self is empty")
+
+  (assert-memory-balance test
+                         set-branch-lifecycle
+                         0l
+                         "persistent ordered set branch lifecycle is memory-balanced"))
