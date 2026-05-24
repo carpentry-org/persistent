@@ -138,6 +138,44 @@
       (IntSet.empty? &d))
     "difference with self is empty")
 
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
+      (IntSet.any? &(fn [x] (= x &3)) &s))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
+      (IntSet.any? &(fn [x] (= x &99)) &s))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
+      (IntSet.all? &(fn [x] (> @x 0)) &s))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
+      (IntSet.all? &(fn [x] (> @x 2)) &s))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntSet.any? &(fn [x] (= x &1)) &(IntSet.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntSet.all? &(fn [x] (= x &1)) &(IntSet.empty))
+    "all? on empty returns true")
+
   (assert-memory-balance test
                          set-branch-lifecycle
                          0l

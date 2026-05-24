@@ -261,6 +261,40 @@
              (Maybe.Just v) (= v 20)
              (Maybe.Nothing) false)))
     "merge-with on disjoint maps just takes values")
+
+  (assert-equal test
+    true
+    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
+      (IntIntMap.any? &(fn [p] (> @(Pair.b p) 8)) &m))
+    "any? finds matching entry")
+
+  (assert-equal test
+    false
+    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
+      (IntIntMap.any? &(fn [p] (> @(Pair.b p) 99)) &m))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
+      (IntIntMap.all? &(fn [p] (> @(Pair.b p) 0)) &m))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
+      (IntIntMap.all? &(fn [p] (> @(Pair.b p) 8)) &m))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntIntMap.any? &(fn [p] true) &(IntIntMap.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntIntMap.all? &(fn [p] false) &(IntIntMap.empty))
+    "all? on empty returns true")
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

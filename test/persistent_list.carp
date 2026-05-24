@@ -206,6 +206,52 @@
       (= &filtered &l2))
     "filter with always-true preserves all elements")
 
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (IntList.any? &(fn [x] (= x &3)) &l3))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (IntList.any? &(fn [x] (= x &99)) &l3))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (IntList.all? &(fn [x] (> @x 0)) &l3))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (IntList.all? &(fn [x] (> @x 2)) &l3))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntList.any? &(fn [x] (= x &1)) &(IntList.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntList.all? &(fn [x] (= x &1)) &(IntList.empty))
+    "all? on empty returns true")
+
   (assert-memory-balance test
                          list-branch-lifecycle
                          0l
