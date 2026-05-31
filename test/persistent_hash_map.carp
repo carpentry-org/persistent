@@ -188,6 +188,79 @@
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
+          b (IntIntMap.insert 3 30 &(IntIntMap.insert 4 40 &(IntIntMap.empty)))
+          m (IntIntMap.merge &a &b)]
+      (and (= (IntIntMap.length &m) 4l)
+           (let [k1 1
+                 k3 3]
+             (and
+               (match (IntIntMap.get &k1 &m)
+                 (Maybe.Just v) (= v 10)
+                 (Maybe.Nothing) false)
+               (match (IntIntMap.get &k3 &m)
+                 (Maybe.Just v) (= v 30)
+                 (Maybe.Nothing) false)))))
+    "merge of disjoint maps contains all entries")
+
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
+          b (IntIntMap.insert 2 99 &(IntIntMap.insert 3 30 &(IntIntMap.empty)))
+          m (IntIntMap.merge &a &b)
+          k 2]
+      (and (= (IntIntMap.length &m) 3l)
+           (match (IntIntMap.get &k &m)
+             (Maybe.Just v) (= v 99)
+             (Maybe.Nothing) false)))
+    "merge right wins on key collision")
+
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
+          e (IntIntMap.empty)
+          m1 (IntIntMap.merge &a &e)
+          m2 (IntIntMap.merge &e &a)]
+      (and (= &m1 &a) (= &m2 &a)))
+    "merge with empty is identity")
+
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
+          b (IntIntMap.insert 2 3 &(IntIntMap.insert 3 30 &(IntIntMap.empty)))
+          m (IntIntMap.merge-with &(fn [x y] (+ x y)) &a &b)
+          k1 1
+          k2 2
+          k3 3]
+      (and (= (IntIntMap.length &m) 3l)
+           (match (IntIntMap.get &k1 &m)
+             (Maybe.Just v) (= v 10)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k2 &m)
+             (Maybe.Just v) (= v 23)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k3 &m)
+             (Maybe.Just v) (= v 30)
+             (Maybe.Nothing) false)))
+    "merge-with addition combiner on overlapping keys")
+
+  (assert-equal test
+    true
+    (let [a (IntIntMap.insert 1 10 &(IntIntMap.empty))
+          b (IntIntMap.insert 2 20 &(IntIntMap.empty))
+          m (IntIntMap.merge-with &(fn [x y] (+ x y)) &a &b)
+          k1 1
+          k2 2]
+      (and (= (IntIntMap.length &m) 2l)
+           (match (IntIntMap.get &k1 &m)
+             (Maybe.Just v) (= v 10)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k2 &m)
+             (Maybe.Just v) (= v 20)
+             (Maybe.Nothing) false)))
+    "merge-with on disjoint maps just takes values")
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

@@ -1788,6 +1788,34 @@ This generates:
           (defn values [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc @(Pair.b &p))) [] map-ref))
 
+          (doc merge
+            "Merge two maps. On key collision the second (right) map wins.")
+          (sig merge (Fn [(Ref %name a) (Ref %name b)] %name))
+          (defn merge [a-ref b-ref]
+            (reduce
+              &(fn [acc p] (insert @(Pair.a &p) @(Pair.b &p) &acc))
+              @a-ref
+              b-ref))
+
+          (doc merge-with
+            "Merge two maps with a conflict resolver. For keys in both maps, call the resolver with both values.")
+          (sig merge-with
+               (Fn
+                 [(Ref (Fn [%value-type %value-type] %value-type) q)
+                  (Ref %name a)
+                  (Ref %name b)]
+                 %name))
+          (defn merge-with [f a-ref b-ref]
+            (reduce
+              &(fn [acc p]
+                (let [k @(Pair.a &p)
+                      bv @(Pair.b &p)]
+                  (match (get @&k &acc)
+                    (Maybe.Nothing) (insert k bv &acc)
+                    (Maybe.Just av) (insert k (~f av bv) &acc))))
+              @a-ref
+              b-ref))
+
           (doc =
             "Structural equality: same size and pairwise equal entries in ascending key order.")
           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
@@ -2403,6 +2431,34 @@ Example:
           (sig values (Fn [(Ref %name q)] (Array %value-type)))
           (defn values [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc @(Pair.b &p))) [] map-ref))
+
+          (doc merge
+            "Merge two maps. On key collision the second (right) map wins.")
+          (sig merge (Fn [(Ref %name a) (Ref %name b)] %name))
+          (defn merge [a-ref b-ref]
+            (reduce
+              &(fn [acc p] (insert @(Pair.a &p) @(Pair.b &p) &acc))
+              @a-ref
+              b-ref))
+
+          (doc merge-with
+            "Merge two maps with a conflict resolver. For keys in both maps, call the resolver with both values.")
+          (sig merge-with
+               (Fn
+                 [(Ref (Fn [%value-type %value-type] %value-type) q)
+                  (Ref %name a)
+                  (Ref %name b)]
+                 %name))
+          (defn merge-with [f a-ref b-ref]
+            (reduce
+              &(fn [acc p]
+                (let [k @(Pair.a &p)
+                      bv @(Pair.b &p)]
+                  (match (get &k &acc)
+                    (Maybe.Nothing) (insert k bv &acc)
+                    (Maybe.Just av) (insert k (~f av bv) &acc))))
+              @a-ref
+              b-ref))
 
           (doc =
             "Structural equality: same size and same set of `(key, value)` entries.")
