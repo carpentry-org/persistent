@@ -18,21 +18,16 @@
         v1 (IntVec.push-back 1 &v0)
         v2 (IntVec.push-back 2 &v1)
         v3 (IntVec.push-back 3 &v1)
-        v4 (match (IntVec.assoc 0 9 &v2)
-             (Maybe.Just v) v
-             (Maybe.Nothing) v2)
+        v4 (match (IntVec.assoc 0 9 &v2) (Maybe.Just v) v (Maybe.Nothing) v2)
         v5 (match (IntVec.pop-back &v4)
-             (Maybe.Just p) @(Pair.b &p)
-             (Maybe.Nothing) v4)]
-    (do
-      (ignore v3)
-      (ignore v5))))
+          (Maybe.Just p) @(Pair.b &p)
+          (Maybe.Nothing) v4)]
+    (do (ignore v3) (ignore v5))))
 
 (deftest test
   (assert-equal test
     true
-    (let [v (IntVec.empty)]
-      (IntVec.empty? &v))
+    (let [v (IntVec.empty)] (IntVec.empty? &v))
     "empty vector reports empty")
 
   (assert-equal test
@@ -56,15 +51,14 @@
           v1 (IntVec.push-back 10 &v0)
           v2 (IntVec.push-back 20 &v1)
           assoc-res (IntVec.assoc 1 99 &v2)]
-      (and (match assoc-res
-             (Maybe.Just v)
-               (match (IntVec.get 1 &v)
-                 (Maybe.Just x) (= x 99)
-                 (Maybe.Nothing) false)
-             (Maybe.Nothing) false)
-           (match (IntVec.get 1 &v2)
-             (Maybe.Just v) (= v 20)
-             (Maybe.Nothing) false)))
+      (and
+        (match assoc-res
+          (Maybe.Just v)
+            (match (IntVec.get 1 &v)
+              (Maybe.Just x) (= x 99)
+              (Maybe.Nothing) false)
+          (Maybe.Nothing) false)
+        (match (IntVec.get 1 &v2) (Maybe.Just v) (= v 20) (Maybe.Nothing) false)))
     "assoc updates index while preserving prior version")
 
   (assert-equal test
@@ -112,5 +106,53 @@
       (and (= &a &b) (not (= &a &c))))
     "= is pairwise on index-ordered values")
 
-  (assert-memory-balance test vec-branch-lifecycle 0l "persistent vector branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [v (IntVec.push-back 3
+                              &(IntVec.push-back 2
+                                                 &(IntVec.push-back 1
+                                                                    &(IntVec.empty))))]
+      (IntVec.any? &(fn [x] (= x &3)) &v))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [v (IntVec.push-back 3
+                              &(IntVec.push-back 2
+                                                 &(IntVec.push-back 1
+                                                                    &(IntVec.empty))))]
+      (IntVec.any? &(fn [x] (= x &99)) &v))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.push-back 3
+                              &(IntVec.push-back 2
+                                                 &(IntVec.push-back 1
+                                                                    &(IntVec.empty))))]
+      (IntVec.all? &(fn [x] (> @x 0)) &v))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [v (IntVec.push-back 3
+                              &(IntVec.push-back 2
+                                                 &(IntVec.push-back 1
+                                                                    &(IntVec.empty))))]
+      (IntVec.all? &(fn [x] (> @x 2)) &v))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntVec.any? &(fn [x] (= x &1)) &(IntVec.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntVec.all? &(fn [x] (= x &1)) &(IntVec.empty))
+    "all? on empty returns true")
+
+  (assert-memory-balance test
+                         vec-branch-lifecycle
+                         0l
+                         "persistent vector branch lifecycle is memory-balanced"))

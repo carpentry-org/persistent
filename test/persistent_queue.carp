@@ -199,6 +199,52 @@
       (= &filtered &q2))
     "filter with always-true preserves all elements")
 
+  (assert-equal test
+    true
+    (let [q (IntQueue.enqueue 3
+                              &(IntQueue.enqueue 2
+                                                 &(IntQueue.enqueue 1
+                                                                    &(IntQueue.empty))))]
+      (IntQueue.any? &(fn [x] (= x &3)) &q))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [q (IntQueue.enqueue 3
+                              &(IntQueue.enqueue 2
+                                                 &(IntQueue.enqueue 1
+                                                                    &(IntQueue.empty))))]
+      (IntQueue.any? &(fn [x] (= x &99)) &q))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [q (IntQueue.enqueue 3
+                              &(IntQueue.enqueue 2
+                                                 &(IntQueue.enqueue 1
+                                                                    &(IntQueue.empty))))]
+      (IntQueue.all? &(fn [x] (> @x 0)) &q))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [q (IntQueue.enqueue 3
+                              &(IntQueue.enqueue 2
+                                                 &(IntQueue.enqueue 1
+                                                                    &(IntQueue.empty))))]
+      (IntQueue.all? &(fn [x] (> @x 2)) &q))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntQueue.any? &(fn [x] (= x &1)) &(IntQueue.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntQueue.all? &(fn [x] (= x &1)) &(IntQueue.empty))
+    "all? on empty returns true")
+
   (assert-memory-balance test
                          queue-branch-lifecycle
                          0l

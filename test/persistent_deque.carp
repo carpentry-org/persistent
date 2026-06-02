@@ -200,6 +200,52 @@
       (= &filtered &d2))
     "filter with always-true preserves all elements")
 
+  (assert-equal test
+    true
+    (let [d (IntDeque.push-back 3
+                                &(IntDeque.push-back 2
+                                                     &(IntDeque.push-back 1
+                                                                          &(IntDeque.empty))))]
+      (IntDeque.any? &(fn [x] (= x &3)) &d))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [d (IntDeque.push-back 3
+                                &(IntDeque.push-back 2
+                                                     &(IntDeque.push-back 1
+                                                                          &(IntDeque.empty))))]
+      (IntDeque.any? &(fn [x] (= x &99)) &d))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [d (IntDeque.push-back 3
+                                &(IntDeque.push-back 2
+                                                     &(IntDeque.push-back 1
+                                                                          &(IntDeque.empty))))]
+      (IntDeque.all? &(fn [x] (> @x 0)) &d))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [d (IntDeque.push-back 3
+                                &(IntDeque.push-back 2
+                                                     &(IntDeque.push-back 1
+                                                                          &(IntDeque.empty))))]
+      (IntDeque.all? &(fn [x] (> @x 2)) &d))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntDeque.any? &(fn [x] (= x &1)) &(IntDeque.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntDeque.all? &(fn [x] (= x &1)) &(IntDeque.empty))
+    "all? on empty returns true")
+
   (assert-memory-balance test
                          deque-branch-lifecycle
                          0l

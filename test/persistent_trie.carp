@@ -223,6 +223,56 @@
       (IntTrieInt.empty? &filtered))
     "filter with always-false yields empty trie")
 
+  (assert-equal test
+    true
+    (let [k1 [1 2]
+          k2 [3 4]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 5 &t1)]
+      (IntTrieInt.any? &(fn [p] (> @(Pair.b p) 8)) &t2))
+    "any? finds matching entry")
+
+  (assert-equal test
+    false
+    (let [k1 [1 2]
+          k2 [3 4]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 5 &t1)]
+      (IntTrieInt.any? &(fn [p] (> @(Pair.b p) 99)) &t2))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [k1 [1 2]
+          k2 [3 4]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 5 &t1)]
+      (IntTrieInt.all? &(fn [p] (> @(Pair.b p) 0)) &t2))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [k1 [1 2]
+          k2 [3 4]
+          t0 (IntTrieInt.empty)
+          t1 (IntTrieInt.insert &k1 10 &t0)
+          t2 (IntTrieInt.insert &k2 5 &t1)]
+      (IntTrieInt.all? &(fn [p] (> @(Pair.b p) 8)) &t2))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntTrieInt.any? &(fn [p] true) &(IntTrieInt.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntTrieInt.all? &(fn [p] false) &(IntTrieInt.empty))
+    "all? on empty returns true")
+
   (assert-memory-balance test
                          trie-branch-lifecycle
                          0l

@@ -227,6 +227,18 @@ This generates:
                     list-ref)]
               (reverse &rev)))
 
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
+
           (doc str "Diagnostic formatting for a list.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [list-ref]
@@ -408,6 +420,18 @@ This generates:
               &(fn [acc x] (if (~pred &x) (enqueue x &acc) acc))
               (empty)
               q-ref))
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for a queue.")
           (sig str (Fn [(Ref %name q)] String))
@@ -1117,6 +1141,28 @@ This generates:
               (empty)
               trie-ref))
 
+          (doc any? "Return true if any entry satisfies the predicate.")
+          (sig any?
+               (Fn
+                 [(Ref
+                    (Fn [(Ref (Pair (Array %key-part-type) %value-type) q)] Bool)
+                    r)
+                  (Ref %name s)]
+                 Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all entries satisfy the predicate.")
+          (sig all?
+               (Fn
+                 [(Ref
+                    (Fn [(Ref (Pair (Array %key-part-type) %value-type) q)] Bool)
+                    r)
+                  (Ref %name s)]
+                 Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
+
           (doc str "Diagnostic formatting for a trie.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [trie-ref]
@@ -1346,6 +1392,18 @@ This generates:
               &(fn [acc x] (if (~pred &x) (push-back x &acc) acc))
               (empty)
               dq-ref))
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for a deque.")
           (sig str (Fn [(Ref %name q)] String))
@@ -1850,6 +1908,24 @@ This generates:
               (empty)
               map-ref))
 
+          (doc any? "Return true if any entry satisfies the predicate.")
+          (sig any?
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all entries satisfy the predicate.")
+          (sig all?
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
+
           (doc str "Diagnostic formatting for an ordered map.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [map-ref]
@@ -1972,6 +2048,18 @@ Example:
               (let [aa (to-array a-ref)
                     ab (to-array b-ref)] (= &aa &ab))))
           (implements = %name-eq)
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for an ordered set.")
           (sig str (Fn [(Ref %name q)] String))
@@ -2188,6 +2276,18 @@ Example:
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
           (defn to-array [heap-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] heap-ref))
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for a heap.")
           (sig str (Fn [(Ref %name q)] String))
@@ -2514,6 +2614,24 @@ Example:
               (empty)
               (%map-trie map-ref)))
 
+          (doc any? "Return true if any entry satisfies the predicate.")
+          (sig any?
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all entries satisfy the predicate.")
+          (sig all?
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
+
           (doc str "Diagnostic formatting for a hash map.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [map-ref]
@@ -2630,6 +2748,18 @@ Example:
           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
           (defn = [a-ref b-ref] (%map-eq (%set-map a-ref) (%set-map b-ref)))
           (implements = %name-eq)
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for a hash set.")
           (sig str (Fn [(Ref %name q)] String))
@@ -2782,6 +2912,18 @@ Example:
               (let [aa (to-array a-ref)
                     ab (to-array b-ref)] (= &aa &ab))))
           (implements = %name-eq)
+
+          (doc any? "Return true if any element satisfies the predicate.")
+          (sig any?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn any? [pred coll-ref]
+            (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
+
+          (doc all? "Return true if all elements satisfy the predicate.")
+          (sig all?
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
+          (defn all? [pred coll-ref]
+            (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
           (doc str "Diagnostic formatting for a vector.")
           (sig str (Fn [(Ref %name q)] String))

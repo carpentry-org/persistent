@@ -15,8 +15,7 @@
 
 (defn build-descending-heap [n]
   (let-do [h (IntHeap.empty)]
-    (for [i 0 n]
-      (set! h (IntHeap.insert (- n i) &h)))
+    (for [i 0 n] (set! h (IntHeap.insert (- n i) &h)))
     h))
 
 (defn heap-branch-lifecycle []
@@ -27,9 +26,7 @@
         h4 (IntHeap.merge &h2 &h3)]
     (ignore h4)))
 
-(defn pop-values [heap-ref]
-  (let [out0 []]
-    (pop-values-iter heap-ref &out0)))
+(defn pop-values [heap-ref] (let [out0 []] (pop-values-iter heap-ref &out0)))
 
 (defn pop-values-iter [heap-ref out-ref]
   (match (IntHeap.pop heap-ref)
@@ -37,15 +34,12 @@
     (Maybe.Just p)
       (let [value @(Pair.a &p)
             next-h @(Pair.b &p)]
-        (do
-          (Array.push-back! out-ref value)
-          (pop-values-iter &next-h out-ref)))))
+        (do (Array.push-back! out-ref value) (pop-values-iter &next-h out-ref)))))
 
 (deftest test
   (assert-equal test
     true
-    (let [h (IntHeap.empty)]
-      (IntHeap.empty? &h))
+    (let [h (IntHeap.empty)] (IntHeap.empty? &h))
     "empty heap reports empty")
 
   (assert-equal test
@@ -54,9 +48,7 @@
           h1 (IntHeap.insert 5 &h0)
           h2 (IntHeap.insert 2 &h1)
           h3 (IntHeap.insert 7 &h2)]
-      (match (IntHeap.peek &h3)
-        (Maybe.Just v) (= v 2)
-        (Maybe.Nothing) false))
+      (match (IntHeap.peek &h3) (Maybe.Just v) (= v 2) (Maybe.Nothing) false))
     "peek returns minimum")
 
   (assert-equal test
@@ -91,9 +83,7 @@
     true
     (let [h (build-descending-heap 100000)]
       (and (= (IntHeap.length &h) 100000l)
-           (match (IntHeap.peek &h)
-             (Maybe.Just v) (= v 1)
-             (Maybe.Nothing) false)))
+           (match (IntHeap.peek &h) (Maybe.Just v) (= v 1) (Maybe.Nothing) false)))
     "descending insert of 100k items does not blow the stack via merge-roots")
 
   (assert-equal test
@@ -115,5 +105,49 @@
       (= (Array.length &arr) 3))
     "to-array has count elements")
 
-  (assert-memory-balance test heap-branch-lifecycle 0l "persistent heap branch lifecycle is memory-balanced")
-)
+  (assert-equal test
+    true
+    (let [h (IntHeap.insert 3
+                            &(IntHeap.insert 2
+                                             &(IntHeap.insert 1 &(IntHeap.empty))))]
+      (IntHeap.any? &(fn [x] (= x &3)) &h))
+    "any? finds matching element")
+
+  (assert-equal test
+    false
+    (let [h (IntHeap.insert 3
+                            &(IntHeap.insert 2
+                                             &(IntHeap.insert 1 &(IntHeap.empty))))]
+      (IntHeap.any? &(fn [x] (= x &99)) &h))
+    "any? returns false when none match")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.insert 3
+                            &(IntHeap.insert 2
+                                             &(IntHeap.insert 1 &(IntHeap.empty))))]
+      (IntHeap.all? &(fn [x] (> @x 0)) &h))
+    "all? returns true when all match")
+
+  (assert-equal test
+    false
+    (let [h (IntHeap.insert 3
+                            &(IntHeap.insert 2
+                                             &(IntHeap.insert 1 &(IntHeap.empty))))]
+      (IntHeap.all? &(fn [x] (> @x 2)) &h))
+    "all? returns false when not all match")
+
+  (assert-equal test
+    false
+    (IntHeap.any? &(fn [x] (= x &1)) &(IntHeap.empty))
+    "any? on empty returns false")
+
+  (assert-equal test
+    true
+    (IntHeap.all? &(fn [x] (= x &1)) &(IntHeap.empty))
+    "all? on empty returns true")
+
+  (assert-memory-balance test
+                         heap-branch-lifecycle
+                         0l
+                         "persistent heap branch lifecycle is memory-balanced"))
