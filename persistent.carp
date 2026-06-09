@@ -1414,8 +1414,7 @@ This generates:
           (defn prn [dq-ref] (str dq-ref)))))))
 
 (defmodule Persistent
-  (doc define-ord-map
-    "Generate a persistent ordered map backed by a binary search tree.
+  (doc define-ord-map "Generate a persistent ordered map backed by an AVL tree.
 
 Example:
 
@@ -1436,6 +1435,7 @@ This generates:
           node-value (Symbol.prefix node-type 'value)
           node-left (Symbol.prefix node-type 'left)
           node-right (Symbol.prefix node-type 'right)
+          node-ht (Symbol.prefix node-type 'height)
           node-rc-new (Symbol.prefix node-rc-type 'new)
           node-rc-get (Symbol.prefix node-rc-type 'get)
           node-rc-ptr-eq (Symbol.prefix node-rc-type 'ptr-eq)
@@ -1450,7 +1450,8 @@ This generates:
           [key %key-type
            value %value-type
            left (Maybe %node-rc-type)
-           right (Maybe %node-rc-type)])
+           right (Maybe %node-rc-type)
+           height Int])
         (hidden %node-type)
 
         (Rc.define %node-rc-type %node-type)
@@ -1467,6 +1468,120 @@ This generates:
                         count Long])
 
         (defmodule %name
+          (private subtree-height)
+          (hidden subtree-height)
+          (sig subtree-height (Fn [(Ref (Maybe %node-rc-type) q)] Int))
+          (defn subtree-height [maybe-ref]
+            (match-ref maybe-ref
+              (Maybe.Nothing) 0
+              (Maybe.Just rc) (let [node (%node-rc-get rc)] @(%node-ht &node))))
+
+          (private make-node)
+          (hidden make-node)
+          (sig make-node
+               (Fn
+                 [%key-type
+                  %value-type
+                  (Maybe %node-rc-type)
+                  (Maybe %node-rc-type)]
+                 %node-type))
+          (defn make-node [key value left right]
+            (let [h (Int.inc
+                    (Int.max (subtree-height &left) (subtree-height &right)))]
+              (%node-init key value left right h)))
+
+          (private rotate-right-node)
+          (hidden rotate-right-node)
+          (sig rotate-right-node (Fn [(Ref %node-type q)] (Maybe %node-rc-type)))
+          (defn rotate-right-node [z-ref]
+            (match-ref (%node-left z-ref)
+              (Maybe.Nothing)
+                (Maybe.Just
+                  (%node-rc-new
+                    (make-node @(%node-key z-ref)
+                               @(%node-value z-ref)
+                               @(%node-left z-ref)
+                               @(%node-right z-ref))))
+              (Maybe.Just y-rc)
+                (let [y (%node-rc-get y-rc)
+                      z-prime (make-node @(%node-key z-ref)
+                                         @(%node-value z-ref)
+                                         @(%node-right &y)
+                                         @(%node-right z-ref))
+                      new-root (make-node @(%node-key &y)
+                                          @(%node-value &y)
+                                          @(%node-left &y)
+                                          (Maybe.Just (%node-rc-new z-prime)))]
+                  (Maybe.Just (%node-rc-new new-root)))))
+
+          (private rotate-left-node)
+          (hidden rotate-left-node)
+          (sig rotate-left-node (Fn [(Ref %node-type q)] (Maybe %node-rc-type)))
+          (defn rotate-left-node [x-ref]
+            (match-ref (%node-right x-ref)
+              (Maybe.Nothing)
+                (Maybe.Just
+                  (%node-rc-new
+                    (make-node @(%node-key x-ref)
+                               @(%node-value x-ref)
+                               @(%node-left x-ref)
+                               @(%node-right x-ref))))
+              (Maybe.Just y-rc)
+                (let [y (%node-rc-get y-rc)
+                      x-prime (make-node @(%node-key x-ref)
+                                         @(%node-value x-ref)
+                                         @(%node-left x-ref)
+                                         @(%node-left &y))
+                      new-root (make-node @(%node-key &y)
+                                          @(%node-value &y)
+                                          (Maybe.Just (%node-rc-new x-prime))
+                                          @(%node-right &y))]
+                  (Maybe.Just (%node-rc-new new-root)))))
+
+          (private balance-node)
+          (hidden balance-node)
+          (sig balance-node
+               (Fn [(Ref (Maybe %node-rc-type) q)] (Maybe %node-rc-type)))
+          (defn balance-node [maybe-ref]
+            (match-ref maybe-ref
+              (Maybe.Nothing) (Maybe.Nothing)
+              (Maybe.Just rc)
+                (let [node (%node-rc-get rc)
+                      lh (subtree-height (%node-left &node))
+                      rh (subtree-height (%node-right &node))
+                      bf (- lh rh)]
+                  (if (> bf 1)
+                    (match-ref (%node-left &node)
+                      (Maybe.Nothing) @maybe-ref
+                      (Maybe.Just left-rc)
+                        (let [left (%node-rc-get left-rc)
+                              left-bf (- (subtree-height (%node-left &left))
+                                         (subtree-height (%node-right &left)))]
+                          (if (< left-bf 0)
+                            (let [rotated-left (rotate-left-node &left)
+                                  adjusted (make-node @(%node-key &node)
+                                                      @(%node-value &node)
+                                                      rotated-left
+                                                      @(%node-right &node))]
+                              (rotate-right-node &adjusted))
+                            (rotate-right-node &node))))
+                    (if (< bf -1)
+                      (match-ref (%node-right &node)
+                        (Maybe.Nothing) @maybe-ref
+                        (Maybe.Just right-rc)
+                          (let [right (%node-rc-get right-rc)
+                                right-bf (- (subtree-height (%node-left &right))
+                                            (subtree-height (%node-right &right)))]
+                            (if (> right-bf 0)
+                              (let [rotated-right (rotate-right-node &right)
+                                    adjusted (make-node @(%node-key &node)
+                                                        @(%node-value &node)
+                                                        @(%node-left &node)
+                                                        rotated-right)]
+                                (rotate-left-node &adjusted))
+                              (rotate-left-node &node))))
+                      @maybe-ref)))))
+
           (private get-node)
           (hidden get-node)
           (sig get-node
@@ -1509,10 +1624,10 @@ This generates:
                       (set! new-child
                             (Maybe.Just
                               (%node-rc-new
-                                (%node-init @&key
-                                            @&value
-                                            (Maybe.Nothing)
-                                            (Maybe.Nothing)))))
+                                (make-node @&key
+                                           @&value
+                                           (Maybe.Nothing)
+                                           (Maybe.Nothing)))))
                       (set! inserted true)
                       (set! keep-going false))
                   (Maybe.Just node-rc)
@@ -1536,25 +1651,26 @@ This generates:
                                       (%node-init @(%node-key &node)
                                                   @&value
                                                   @(%node-left &node)
-                                                  @(%node-right &node)))))
+                                                  @(%node-right &node)
+                                                  @(%node-ht &node)))))
                             (set! keep-going false)))))))
               (let-do [i (Int.dec (Array.length &path))]
                 (while-do (>= i 0)
-                  (let [frame (Array.unsafe-nth &path i)
-                        parent-node (%node-rc-get (Pair.a frame))
-                        went-left @(Pair.b frame)
-                        rebuilt (if went-left
-                          (%node-init @(%node-key &parent-node)
-                                      @(%node-value &parent-node)
-                                      @&new-child
-                                      @(%node-right &parent-node))
-                          (%node-init @(%node-key &parent-node)
-                                      @(%node-value &parent-node)
-                                      @(%node-left &parent-node)
-                                      @&new-child))]
-                    (do
-                      (set! new-child (Maybe.Just (%node-rc-new rebuilt)))
-                      (set! i (Int.dec i))))))
+                  (let-do [frame (Array.unsafe-nth &path i)
+                           parent-node (%node-rc-get (Pair.a frame))
+                           went-left @(Pair.b frame)
+                           rebuilt (if went-left
+                             (make-node @(%node-key &parent-node)
+                                        @(%node-value &parent-node)
+                                        @&new-child
+                                        @(%node-right &parent-node))
+                             (make-node @(%node-key &parent-node)
+                                        @(%node-value &parent-node)
+                                        @(%node-left &parent-node)
+                                        @&new-child))
+                           wrapped (Maybe.Just (%node-rc-new rebuilt))]
+                    (set! new-child (balance-node &wrapped))
+                    (set! i (Int.dec i)))))
               (Pair.init new-child inserted)))
 
           (private extract-min)
@@ -1580,15 +1696,15 @@ This generates:
                         (set! current-rc @left-rc)))))
               (let-do [j (Int.dec (Array.length &path))]
                 (while-do (>= j 0)
-                  (let [parent-rc (Array.unsafe-nth &path j)
-                        parent-node (%node-rc-get parent-rc)
-                        rebuilt (%node-init @(%node-key &parent-node)
-                                            @(%node-value &parent-node)
-                                            @&new-left
-                                            @(%node-right &parent-node))]
-                    (do
-                      (set! new-left (Maybe.Just (%node-rc-new rebuilt)))
-                      (set! j (Int.dec j))))))
+                  (let-do [parent-rc (Array.unsafe-nth &path j)
+                           parent-node (%node-rc-get parent-rc)
+                           rebuilt (make-node @(%node-key &parent-node)
+                                              @(%node-value &parent-node)
+                                              @&new-left
+                                              @(%node-right &parent-node))
+                           wrapped (Maybe.Just (%node-rc-new rebuilt))]
+                    (set! new-left (balance-node &wrapped))
+                    (set! j (Int.dec j)))))
               (Pair.init (%node-rc-get &current-rc) new-left)))
 
           (private remove-node)
@@ -1632,34 +1748,34 @@ This generates:
                                     (let [rec (extract-min right-rc)
                                           min-node @(Pair.a &rec)
                                           right2 @(Pair.b &rec)
-                                          node2 (%node-init @(%node-key &min-node)
-                                                            @(%node-value &min-node)
-                                                            @(%node-left &node)
-                                                            right2)]
-                                      (set! new-subtree
-                                            (Maybe.Just (%node-rc-new node2))))))
+                                          node2 (make-node @(%node-key &min-node)
+                                                           @(%node-value &min-node)
+                                                           @(%node-left &node)
+                                                           right2)
+                                          wrapped (Maybe.Just (%node-rc-new node2))]
+                                      (set! new-subtree (balance-node &wrapped)))))
                             (set! removed true)
                             (set! keep-going false)))))))
               (if (not removed)
                 (Pair.init @root-ref false)
                 (let-do [j (Int.dec (Array.length &path))]
                   (while-do (>= j 0)
-                    (let [frame (Array.unsafe-nth &path j)
-                          parent-rc (Pair.a frame)
-                          went-left @(Pair.b frame)
-                          parent-node (%node-rc-get parent-rc)
-                          rebuilt (if went-left
-                            (%node-init @(%node-key &parent-node)
-                                        @(%node-value &parent-node)
-                                        @&new-subtree
-                                        @(%node-right &parent-node))
-                            (%node-init @(%node-key &parent-node)
-                                        @(%node-value &parent-node)
-                                        @(%node-left &parent-node)
-                                        @&new-subtree))]
-                      (do
-                        (set! new-subtree (Maybe.Just (%node-rc-new rebuilt)))
-                        (set! j (Int.dec j)))))
+                    (let-do [frame (Array.unsafe-nth &path j)
+                             parent-rc (Pair.a frame)
+                             went-left @(Pair.b frame)
+                             parent-node (%node-rc-get parent-rc)
+                             rebuilt (if went-left
+                               (make-node @(%node-key &parent-node)
+                                          @(%node-value &parent-node)
+                                          @&new-subtree
+                                          @(%node-right &parent-node))
+                               (make-node @(%node-key &parent-node)
+                                          @(%node-value &parent-node)
+                                          @(%node-left &parent-node)
+                                          @&new-subtree))
+                             wrapped (Maybe.Just (%node-rc-new rebuilt))]
+                      (set! new-subtree (balance-node &wrapped))
+                      (set! j (Int.dec j))))
                   (Pair.init new-subtree true)))))
 
           (private min-node)
@@ -1695,7 +1811,7 @@ This generates:
           (doc singleton "Create an ordered map with one key/value pair.")
           (sig singleton (Fn [%key-type %value-type] %name))
           (defn singleton [key value]
-            (let [node (%node-init key value (Maybe.Nothing) (Maybe.Nothing))]
+            (let [node (make-node key value (Maybe.Nothing) (Maybe.Nothing))]
               (%map-init (Maybe.Just (%node-rc-new node)) 1l)))
 
           (doc length "Return number of stored key/value pairs.")
@@ -1705,6 +1821,11 @@ This generates:
           (doc empty? "Returns `true` when map contains no entries.")
           (sig empty? (Fn [(Ref %name q)] Bool))
           (defn empty? [map-ref] (= (length map-ref) 0l))
+
+          (doc height
+            "Return the height of the underlying AVL tree (0 for empty).")
+          (sig height (Fn [(Ref %name q)] Int))
+          (defn height [map-ref] (subtree-height (%map-root map-ref)))
 
           (doc insert "Insert or replace value for key, returning a new map.")
           (sig insert (Fn [%key-type %value-type (Ref %name q)] %name))
@@ -1955,6 +2076,7 @@ Example:
           map-ptr-eq (Symbol.prefix map-type 'ptr-eq)
           map-reduce (Symbol.prefix map-type 'reduce)
           map-each (Symbol.prefix map-type 'each)
+          map-height (Symbol.prefix map-type 'height)
           name-eq (Symbol.prefix name '=)]
       `(do
         (Persistent.define-ord-map %map-type %value-type Bool)
@@ -1976,6 +2098,11 @@ Example:
           (doc empty? "Returns `true` when set contains no entries.")
           (sig empty? (Fn [(Ref %name q)] Bool))
           (defn empty? [set-ref] (%map-empty-pred (%set-map set-ref)))
+
+          (doc height
+            "Return the height of the underlying AVL tree (0 for empty).")
+          (sig height (Fn [(Ref %name q)] Int))
+          (defn height [set-ref] (%map-height (%set-map set-ref)))
 
           (doc insert "Insert value, returning a new set.")
           (sig insert (Fn [%value-type (Ref %name q)] %name))

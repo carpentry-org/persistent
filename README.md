@@ -50,8 +50,6 @@ live in the generated HTML docs.
 ## Caveats
 
 - Single-threaded (inherited from `rc`).
-- Ordered map and set are unbalanced BSTs; adversarial input degrades to
-  linear.
 - Hash map and vector both use fixed-depth tries.
 - Current Carp may emit `No 'prn'` / `Too many 'delete'` warnings for
   generated `Rc` handles. Known noise.

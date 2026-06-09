@@ -315,6 +315,41 @@
     (IntIntOMap.all? &(fn [p] false) &(IntIntOMap.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    0
+    (IntIntOMap.height &(IntIntOMap.empty))
+    "empty map has height 0")
+
+  (assert-equal test
+    1
+    (IntIntOMap.height &(IntIntOMap.singleton 1 1))
+    "singleton map has height 1")
+
+  (assert-equal test
+    true
+    (let [m (build-ascending 1000)] (<= (IntIntOMap.height &m) 15))
+    "AVL height is logarithmic after 1000 ascending inserts")
+
+  (assert-equal test
+    true
+    (let-do [m (IntIntOMap.empty)]
+      (for [i 0 1000] (set! m (IntIntOMap.insert (- 999 i) i &m)))
+      (<= (IntIntOMap.height &m) 15))
+    "AVL height is logarithmic after 1000 descending inserts")
+
+  (assert-equal test
+    true
+    (let [m (build-ascending 10000)] (<= (IntIntOMap.height &m) 21))
+    "AVL height bounded for 10000 ascending inserts")
+
+  (assert-equal test
+    true
+    (let-do [m (build-ascending 100)
+             r m]
+      (for [i 0 50] (set! r (IntIntOMap.remove (* i 2) &r)))
+      (and (<= (IntIntOMap.height &r) 8) (= (IntIntOMap.length &r) 50l)))
+    "AVL stays balanced after removing half the entries")
+
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

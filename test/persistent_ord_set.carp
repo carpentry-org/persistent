@@ -176,6 +176,13 @@
     (IntSet.all? &(fn [x] (= x &1)) &(IntSet.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let-do [s (IntSet.empty)]
+      (for [i 0 1000] (set! s (IntSet.insert i &s)))
+      (<= (IntSet.height &s) 15))
+    "AVL set height is logarithmic after 1000 ascending inserts")
+
   (assert-memory-balance test
                          set-branch-lifecycle
                          0l
