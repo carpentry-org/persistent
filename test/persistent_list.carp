@@ -252,6 +252,19 @@
     (IntList.all? &(fn [x] (= x &1)) &(IntList.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [10 20 30]
+          l (IntList.from-array &arr)
+          back (IntList.to-array &l)]
+      (= &arr &back))
+    "from-array round-trips through to-array")
+
+  (assert-equal test
+    true
+    (let [l (IntList.from-array &(the (Array Int) []))] (IntList.empty? &l))
+    "from-array on empty array yields empty list")
+
   (assert-memory-balance test
                          list-branch-lifecycle
                          0l

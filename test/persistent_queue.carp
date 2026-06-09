@@ -245,6 +245,19 @@
     (IntQueue.all? &(fn [x] (= x &1)) &(IntQueue.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [10 20 30]
+          q (IntQueue.from-array &arr)
+          back (IntQueue.to-array &q)]
+      (= &arr &back))
+    "from-array round-trips through to-array")
+
+  (assert-equal test
+    true
+    (let [q (IntQueue.from-array &(the (Array Int) []))] (IntQueue.empty? &q))
+    "from-array on empty array yields empty queue")
+
   (assert-memory-balance test
                          queue-branch-lifecycle
                          0l

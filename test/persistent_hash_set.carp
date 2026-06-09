@@ -173,6 +173,21 @@
     (IntSet.all? &(fn [x] (= x &1)) &(IntSet.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [3 1 2]
+          s (IntSet.from-array &arr)]
+      (and (= (IntSet.length &s) 3l)
+           (IntSet.contains? &3 &s)
+           (IntSet.contains? &1 &s)
+           (IntSet.contains? &2 &s)))
+    "from-array builds set containing all elements")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.from-array &(the (Array Int) []))] (IntSet.empty? &s))
+    "from-array on empty array yields empty set")
+
   (assert-memory-balance test
                          set-branch-lifecycle
                          0l

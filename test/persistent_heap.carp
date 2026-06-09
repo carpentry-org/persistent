@@ -147,6 +147,18 @@
     (IntHeap.all? &(fn [x] (= x &1)) &(IntHeap.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [30 10 20]
+          h (IntHeap.from-array &arr)]
+      (and (= (IntHeap.length &h) 3l) (= &(Maybe.Just 10) &(IntHeap.peek &h))))
+    "from-array inserts all elements with correct min")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.from-array &(the (Array Int) []))] (IntHeap.empty? &h))
+    "from-array on empty array yields empty heap")
+
   (assert-memory-balance test
                          heap-branch-lifecycle
                          0l
