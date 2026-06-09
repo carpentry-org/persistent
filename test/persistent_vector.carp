@@ -152,6 +152,58 @@
     (IntVec.all? &(fn [x] (= x &1)) &(IntVec.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 1 &v0)
+          v2 (IntVec.push-back 2 &v1)
+          v3 (IntVec.push-back 3 &v2)
+          mapped (IntVec.map &(fn [x] (+ x 10)) &v3)
+          arr (IntVec.to-array &mapped)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 11)
+           (= @(Array.unsafe-nth &arr 1) 12)
+           (= @(Array.unsafe-nth &arr 2) 13)))
+    "map applies function preserving index order")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.empty)
+          m (IntVec.map &(fn [x] (+ x 1)) &v)]
+      (IntVec.empty? &m))
+    "map over empty vector yields empty")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 1 &v0)
+          v2 (IntVec.push-back 2 &v1)
+          v3 (IntVec.push-back 3 &v2)
+          filtered (IntVec.filter &(fn [x] (> @x 1)) &v3)
+          arr (IntVec.to-array &filtered)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 2)
+           (= @(Array.unsafe-nth &arr 1) 3)))
+    "filter keeps elements matching predicate in order")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 1 &v0)
+          v2 (IntVec.push-back 2 &v1)
+          filtered (IntVec.filter &(fn [x] false) &v2)]
+      (IntVec.empty? &filtered))
+    "filter with always-false yields empty vector")
+
+  (assert-equal test
+    true
+    (let [v0 (IntVec.empty)
+          v1 (IntVec.push-back 1 &v0)
+          v2 (IntVec.push-back 2 &v1)
+          filtered (IntVec.filter &(fn [x] true) &v2)]
+      (= &filtered &v2))
+    "filter with always-true preserves all elements")
+
   (assert-memory-balance test
                          vec-branch-lifecycle
                          0l

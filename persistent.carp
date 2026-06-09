@@ -3052,6 +3052,23 @@ Example:
           (defn all? [pred coll-ref]
             (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
+          (doc map
+            "Apply a function to each element, returning a new vector in index order.")
+          (sig map
+               (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
+          (defn map [f vec-ref]
+            (reduce &(fn [acc x] (push-back (~f x) &acc)) (empty) vec-ref))
+
+          (doc filter
+            "Keep only elements satisfying a predicate, preserving index order.")
+          (sig filter
+               (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] %name))
+          (defn filter [pred vec-ref]
+            (reduce
+              &(fn [acc x] (if (~pred &x) (push-back x &acc) acc))
+              (empty)
+              vec-ref))
+
           (doc str "Diagnostic formatting for a vector.")
           (sig str (Fn [(Ref %name q)] String))
           (defn str [vec-ref]
