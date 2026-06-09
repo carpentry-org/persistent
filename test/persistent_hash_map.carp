@@ -295,6 +295,21 @@
     true
     (IntIntMap.all? &(fn [p] false) &(IntIntMap.empty))
     "all? on empty returns true")
+  (assert-equal test
+    true
+    (let [arr [(Pair.init 1 10) (Pair.init 2 20)]
+          m (IntIntMap.from-array &arr)]
+      (and (= (IntIntMap.length &m) 2l)
+           (= &(Maybe.Just 10) &(IntIntMap.get &1 &m))
+           (= &(Maybe.Just 20) &(IntIntMap.get &2 &m))))
+    "from-array builds map from pairs")
+
+  (assert-equal test
+    true
+    (let [m (IntIntMap.from-array &(the (Array (Pair Int Int)) []))]
+      (IntIntMap.empty? &m))
+    "from-array on empty array yields empty map")
+
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

@@ -246,6 +246,19 @@
     (IntDeque.all? &(fn [x] (= x &1)) &(IntDeque.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [10 20 30]
+          d (IntDeque.from-array &arr)
+          back (IntDeque.to-array &d)]
+      (= &arr &back))
+    "from-array round-trips through to-array")
+
+  (assert-equal test
+    true
+    (let [d (IntDeque.from-array &(the (Array Int) []))] (IntDeque.empty? &d))
+    "from-array on empty array yields empty deque")
+
   (assert-memory-balance test
                          deque-branch-lifecycle
                          0l

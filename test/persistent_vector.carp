@@ -204,6 +204,19 @@
       (= &filtered &v2))
     "filter with always-true preserves all elements")
 
+  (assert-equal test
+    true
+    (let [arr [10 20 30]
+          v (IntVec.from-array &arr)
+          back (IntVec.to-array &v)]
+      (= &arr &back))
+    "from-array round-trips through to-array")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &(the (Array Int) []))] (IntVec.empty? &v))
+    "from-array on empty array yields empty vector")
+
   (assert-memory-balance test
                          vec-branch-lifecycle
                          0l

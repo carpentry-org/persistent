@@ -350,6 +350,21 @@
       (and (<= (IntIntOMap.height &r) 8) (= (IntIntOMap.length &r) 50l)))
     "AVL stays balanced after removing half the entries")
 
+  (assert-equal test
+    true
+    (let [arr [(Pair.init 1 @"one") (Pair.init 2 @"two")]
+          m (IntStrMap.from-array &arr)]
+      (and (= (IntStrMap.length &m) 2l)
+           (= &(Maybe.Just @"one") &(IntStrMap.get 1 &m))
+           (= &(Maybe.Just @"two") &(IntStrMap.get 2 &m))))
+    "from-array builds map from pairs")
+
+  (assert-equal test
+    true
+    (let [m (IntStrMap.from-array &(the (Array (Pair Int String)) []))]
+      (IntStrMap.empty? &m))
+    "from-array on empty array yields empty map")
+
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

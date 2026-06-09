@@ -273,6 +273,21 @@
     (IntTrieInt.all? &(fn [p] false) &(IntTrieInt.empty))
     "all? on empty returns true")
 
+  (assert-equal test
+    true
+    (let [arr [(Pair.init [1 2] @"a") (Pair.init [3 4] @"b")]
+          t (IntTrie.from-array &arr)]
+      (and (= (IntTrie.length &t) 2l)
+           (= &(Maybe.Just @"a") &(IntTrie.get &[1 2] &t))
+           (= &(Maybe.Just @"b") &(IntTrie.get &[3 4] &t))))
+    "from-array builds trie from key-value pairs")
+
+  (assert-equal test
+    true
+    (let [t (IntTrie.from-array &(the (Array (Pair (Array Int) String)) []))]
+      (IntTrie.empty? &t))
+    "from-array on empty array yields empty trie")
+
   (assert-memory-balance test
                          trie-branch-lifecycle
                          0l

@@ -160,6 +160,17 @@ This generates:
           (defn to-array [list-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] list-ref))
 
+          (doc from-array
+            "Build a list from an `Array`, preserving element order.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (let-do [acc (empty)
+                     i (- (Array.length arr-ref) 1)]
+              (while-do (>= i 0)
+                (set! acc (prepend @(Array.unsafe-nth arr-ref i) &acc))
+                (set! i (- i 1)))
+              acc))
+
           (doc = "Structural equality: same length and pairwise equal elements.")
           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
           (defn = [a-ref b-ref]
@@ -393,6 +404,12 @@ This generates:
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
           (defn to-array [q-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] q-ref))
+
+          (doc from-array
+            "Build a queue from an `Array`, preserving FIFO order.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (enqueue @x &acc)) (empty) arr-ref))
 
           (doc =
             "Structural equality: same length and pairwise equal FIFO sequence.")
@@ -1090,6 +1107,18 @@ This generates:
           (defn to-array [trie-ref]
             (reduce &(fn [acc p] (Array.push-back acc p)) [] trie-ref))
 
+          (doc from-array
+            "Build a trie from an `Array` of `(Pair key value)` entries.")
+          (sig from-array
+               (Fn
+                 [(Ref (Array (Pair (Array %key-part-type) %value-type)) q)]
+                 %name))
+          (defn from-array [arr-ref]
+            (Array.reduce
+              &(fn [acc p] (insert (Pair.a p) @(Pair.b p) &acc))
+              (empty)
+              arr-ref))
+
           (doc keys "Collect all keys into an `Array`.")
           (sig keys (Fn [(Ref %name q)] (Array (Array %key-part-type))))
           (defn keys [trie-ref]
@@ -1365,6 +1394,12 @@ This generates:
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
           (defn to-array [dq-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] dq-ref))
+
+          (doc from-array
+            "Build a deque from an `Array`, preserving front-to-back order.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (push-back @x &acc)) (empty) arr-ref))
 
           (doc =
             "Structural equality: same length and pairwise equal front-to-back sequence.")
@@ -1957,6 +1992,16 @@ This generates:
           (defn to-array [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc p)) [] map-ref))
 
+          (doc from-array
+            "Build an ordered map from an `Array` of `(Pair key value)` entries.")
+          (sig from-array
+               (Fn [(Ref (Array (Pair %key-type %value-type)) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce
+              &(fn [acc p] (insert @(Pair.a p) @(Pair.b p) &acc))
+              (empty)
+              arr-ref))
+
           (doc keys "Collect keys into an `Array` in ascending order.")
           (sig keys (Fn [(Ref %name q)] (Array %key-type)))
           (defn keys [map-ref]
@@ -2141,6 +2186,11 @@ Example:
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
           (defn to-array [set-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] set-ref))
+
+          (doc from-array "Build an ordered set from an `Array` of values.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (insert @x &acc)) (empty) arr-ref))
 
           (doc union
             "Return the union of two sets (all elements from either set).")
@@ -2404,6 +2454,11 @@ Example:
           (defn to-array [heap-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] heap-ref))
 
+          (doc from-array "Build a heap from an `Array` of values.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (insert @x &acc)) (empty) arr-ref))
+
           (doc any? "Return true if any element satisfies the predicate.")
           (sig any?
                (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
@@ -2649,6 +2704,16 @@ Example:
           (defn to-array [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc p)) [] map-ref))
 
+          (doc from-array
+            "Build a hash map from an `Array` of `(Pair key value)` entries.")
+          (sig from-array
+               (Fn [(Ref (Array (Pair %key-type %value-type)) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce
+              &(fn [acc p] (insert @(Pair.a p) @(Pair.b p) &acc))
+              (empty)
+              arr-ref))
+
           (doc keys "Collect all keys into an `Array`.")
           (sig keys (Fn [(Ref %name q)] (Array %key-type)))
           (defn keys [map-ref]
@@ -2847,6 +2912,11 @@ Example:
           (defn to-array [set-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] set-ref))
 
+          (doc from-array "Build a hash set from an `Array` of values.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (insert @x &acc)) (empty) arr-ref))
+
           (doc union
             "Return the union of two sets (all elements from either set).")
           (sig union (Fn [(Ref %name q) (Ref %name r)] %name))
@@ -3030,6 +3100,12 @@ Example:
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
           (defn to-array [vec-ref]
             (reduce &(fn [acc x] (Array.push-back acc x)) [] vec-ref))
+
+          (doc from-array
+            "Build a vector from an `Array`, preserving index order.")
+          (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
+          (defn from-array [arr-ref]
+            (Array.reduce &(fn [acc x] (push-back @x &acc)) (empty) arr-ref))
 
           (doc = "Structural equality: same length and pairwise equal values.")
           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))

@@ -183,6 +183,22 @@
       (<= (IntSet.height &s) 15))
     "AVL set height is logarithmic after 1000 ascending inserts")
 
+  (assert-equal test
+    true
+    (let [arr [3 1 2]
+          s (IntSet.from-array &arr)
+          back (IntSet.to-array &s)]
+      (and (= (IntSet.length &s) 3l)
+           (= @(Array.unsafe-nth &back 0) 1)
+           (= @(Array.unsafe-nth &back 1) 2)
+           (= @(Array.unsafe-nth &back 2) 3)))
+    "from-array builds set with elements in ascending order")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.from-array &(the (Array Int) []))] (IntSet.empty? &s))
+    "from-array on empty array yields empty set")
+
   (assert-memory-balance test
                          set-branch-lifecycle
                          0l
