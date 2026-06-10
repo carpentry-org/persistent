@@ -27,7 +27,7 @@ dispatch.
 - **Queue**: two-list FIFO with amortized O(1) ends.
 - **Deque**: two-list double-ended queue.
 - **Trie**: keyed by `(Array K)`, supports prefix queries.
-- **Ordered map / set**: unbalanced persistent BST.
+- **Ordered map / set**: persistent AVL tree (self-balancing BST).
 - **Heap**: persistent skew min-heap. Everything is `merge`.
 - **Hash map / set**: trie keyed by hash digits (depth 8, radix 16).
 - **Vector**: trie keyed by index digits (depth 7, radix 32).

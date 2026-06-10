@@ -64,11 +64,14 @@ indexed differently.
 
 ### Ordered map and set
 
-A persistent binary search tree. Insert/remove path-copy from the root to the
-leaf. Two-child delete uses successor-from-right.
+A persistent AVL tree (self-balancing binary search tree). Insert/remove
+path-copy from the root to the leaf and rebalance on the way back up.
+Two-child delete uses successor-from-right. Each node stores a height field
+used to compute balance factors; single and double rotations keep the tree
+within AVL balance (height difference of at most 1 between subtrees).
 
-The tree is intentionally unbalanced. Random-ish input behaves; worst-case
-input (always increasing) degrades to a list.
+This guarantees O(log n) insert, remove, and lookup regardless of insertion
+order.
 
 ### Heap
 
@@ -136,7 +139,6 @@ likely offenders.
 
 ## What's deliberately not here yet
 
-- balanced ordered map (AVL/RB)
 - finger-tree-based deque scheduling
 - adaptive hash-trie depth
 - structural `=` for the heap
