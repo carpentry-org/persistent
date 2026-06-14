@@ -129,27 +129,3 @@ measures ~28 ns/op against a lean heap but ~40 ns/op once the process has
 built several large structures, because it goes through the system
 allocator. Clojure's TLAB bump is constant. The numbers above are from a
 single full run (realistic heap).
-
-## History
-
-This table is roughly an order of magnitude better than the first
-measurement of this library. The path:
-
-1. `rc` made cheaper and lighter — single-allocation cells, safety checks
-   compiled out under `--optimize`, a borrowing `value-ref` accessor.
-2. The vector and hash map/set stopped being thin wrappers over the
-   general `define-trie` (a fixed-depth, sibling-chain digit trie) and
-   became dedicated structures: a Clojure-style persistent vector with a
-   tail buffer, and a bitmap-indexed HAMT. Allocations per operation fell
-   from ~49 to ~1 (vector push) and ~40 to ~5 (hash-map insert); reads
-   went to zero allocations.
-3. Two techniques read off Clojure's own source: the owned vector tail is
-   pre-sized to 32 so in-place appends never realloc (Clojure's transient
-   tail trick), and HAMT bitmap nodes store single entries *inline* rather
-   than as a separate node per entry (one fewer allocation per insert).
-   Together these took churn-map from 4.9× to 3.1× and the owned-build gap
-   to 1.7× of Clojure's transient.
-
-What remains is the per-allocation floor (`malloc` + refcount vs TLAB +
-GC), which the non-trie structures had already shown is a 2–7× tax. The
-trie-backed outliers (hash map/set at 10–33×) are gone.
