@@ -2417,23 +2417,6 @@ Example:
         (hidden %node-type)
         (Rc.define %node-rc-type %node-type)
 
-        ; Carp's auto-derived copy/delete treat the void*-registered node
-        ; handle in the Sub variant as a primitive and skip its refcount
-        ; ops, so a Sub slot would leak. Supply explicit copy/delete.
-        (defmodule %slot-type
-          (sig delete (Fn [%slot-type] ()))
-          (defn delete [s]
-            (match s
-              (%slot-entry k v) (do (ignore k) (ignore v))
-              (%slot-sub rc) (%node-rc-delete rc)))
-          (implements delete %slot-delete)
-          (sig copy (Fn [(Ref %slot-type q)] %slot-type))
-          (defn copy [sref]
-            (match-ref sref
-              (%slot-entry k v) (%slot-entry @k @v)
-              (%slot-sub rc) (%slot-sub (%node-rc-copy rc))))
-          (implements copy %slot-copy))
-
         (deftype %name [root (Maybe %node-rc-type) count Long])
 
         (defmodule %name
