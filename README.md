@@ -50,9 +50,10 @@ live in the generated HTML docs.
 ## Caveats
 
 - Single-threaded (inherited from `rc`).
-- Hash map and vector both use fixed-depth tries.
+- The hash map/set are HAMTs; the vector is a Clojure-style 32-way trie
+  with a tail buffer. Both scale their depth with size.
 - Current Carp may emit `No 'prn'` / `Too many 'delete'` warnings for
-  generated `Rc` handles. Known noise.
+  generated `Rc` handles stored in arrays. Known noise.
 
 Read more about the design [here](docs/design.md).
 

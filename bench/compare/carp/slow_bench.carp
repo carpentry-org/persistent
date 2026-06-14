@@ -1,0 +1,42 @@
+; Manual timing for the workloads Bench.carp cannot stabilize
+; (hash-map insert 10k exceeds its per-iteration budget; hash-map
+; get 1k trips its variance heuristic). Same workloads as
+; all_bench.carp; reports best-of-N wall time like Bench's best case.
+
+(load "../../../persistent.carp")
+(Project.no-echo)
+
+(Persistent.define-hash-map IntMap Int Int)
+
+(defn build-hash-map [n]
+  (let-do [m (IntMap.empty)]
+    (for [i 0 n] (set! m (IntMap.insert i i &m)))
+    m))
+
+(defn hash-map-get-sum [m n]
+  (let-do [acc 0]
+    (for [i 0 n] (set! acc (+ acc (Maybe.from (IntMap.get &i m) 0))))
+    acc))
+
+(def *map1k* (IntMap.empty))
+
+(sig best-of (Fn [Int (Ref (Fn [] ()) q)] Double))
+(defn best-of [runs f]
+  (let-do [best 9223372036854775807l]
+    (for [r 0 runs]
+      (let-do [start (Uint64.to-long (System.nanotime))]
+        (~f)
+        (let [took (- (Uint64.to-long (System.nanotime)) start)]
+          (when (< took best) (set! best took)))))
+    (Double.from-long best)))
+
+(defn main []
+  (do
+    (set! *map1k* (build-hash-map 1000))
+    ; warmup
+    (ignore (build-hash-map 10000))
+    (ignore (hash-map-get-sum &*map1k* 1000))
+    (let [t (best-of 30 &(fn [] (ignore (build-hash-map 10000))))]
+      (println* "hash-map insert 10k best: " (/ t 1000000.0) "ms"))
+    (let [t (best-of 200 &(fn [] (ignore (hash-map-get-sum &*map1k* 1000))))]
+      (println* "hash-map get 1k best: " (/ t 1000.0) "µs"))))

@@ -29,12 +29,11 @@ concrete by the time `Rc.define` runs, which means the recursive node and
 wrapper types above it have to be concrete too. A macro is what threads
 all of those concrete pieces through one expansion.
 
-That also lets layered collections compose: `define-hash-map` and
-`define-vector` both expand into `define-trie` internally, with the inner
-trie fully specialized for its own key/value pair. The trade is that one
-`define-*` call is required per payload type. In return you get fully
-specialized code, a regular Carp module per generated collection, and
-`=`/`str`/`prn` wired up automatically through `implements`.
+The trade is that one `define-*` call is required per payload type. In
+return you get fully specialized code, a regular Carp module per
+generated collection, and `=`/`str`/`prn` wired up automatically through
+`implements`. (`define-hash-set` is the one collection that layers on
+another: it expands into a `define-hash-map` with `Bool` values.)
 
 ## How each collection is laid out
 
@@ -59,8 +58,11 @@ Keyed by `(Array K)`. Internally each node has a `label`, an optional `value`,
 a `child` chain, and a `sibling` chain. Insert and remove only path-copy the
 sibling/child chains they actually touch.
 
-The hash map and vector are both built on top of this same trie shape, just
-indexed differently.
+This is a general prefix trie over arbitrary key-part sequences (its
+strength is `contains-prefix?` and friends). The hash map and vector
+used to be built on it too, but they are now dedicated structures (see
+below) — a first-child/next-sibling chain is the wrong shape for the
+dense, bounded-radix digit tries they need.
 
 ### Ordered map and set
 
@@ -82,21 +84,56 @@ A persistent skew min-heap. The whole API is built around `merge`:
 
 ### Hash map and set
 
-A trie keyed by the digits of `(hash key)`. Fixed depth of 8, radix 16
-(nibbles per step). Each leaf is an array of `(Pair K V)` for collisions, and
-collisions are resolved by linear scan within the bucket.
+A hash array mapped trie (HAMT), radix 32. Internal nodes are
+bitmap-indexed: a 32-bit bitmap marks which of the 32 slots are occupied,
+and a popcount-packed array holds only the present slots (slot `f` lives
+at array index `popcount(bitmap & ((1<<f)-1))`). So a node allocates space
+for exactly its slots, and depth grows with the entry count rather than
+being fixed. Each slot is either an **inline `Entry`** (the key and value
+stored directly in the node array, no separate allocation) or a **`Sub`**
+pointer to a child node; only an actual hash collision (same 31-bit hash,
+different key) allocates a `Collision` bucket, scanned linearly (the same
+`bucket-*` helpers used elsewhere). `hash-set` is a `hash-map` with `Bool`
+values.
+
+This replaced an earlier fixed-depth-8 radix-16 digit trie whose children
+were sibling chains. The HAMT does an order of magnitude fewer allocations
+per insert (measured ~4 vs ~40 at 1k entries) and turns lookups into
+bitmap-indexed array hops; storing entries inline (read off Clojure's
+`BitmapIndexedNode`) saves the per-entry node allocation.
+
+The slot type carries hand-written `copy`/`delete` (rather than the
+auto-derived ones). That works around a current Carp limitation: a
+concrete deftype resolves whether a member needs memory management against
+the env as it was at *definition* time, and the slot's node-handle gets
+its `delete` from a later `Rc.define`, so the auto-derived versions would
+treat it as unmanaged and leak. The explicit ones make a `Sub` slot share
+on copy and free on delete. When the compiler resolves member
+managed-ness against the live env, this block can be deleted.
 
 ### Vector
 
-A trie keyed by the digits of the index. Fixed depth of 7, radix 32. The
-operations are:
+A Clojure-style persistent vector: a 32-way radix trie over the index bits,
+plus a 32-element **tail** buffer. Most `push-back`s only copy the tail
+(one allocation, no tree walk); when the tail fills, it is pushed into the
+tree as a leaf and a fresh tail is started. Tree depth (`shift`) grows and
+shrinks with the count rather than being fixed.
 
-- `push-back` inserts at index `count`
-- `assoc` overwrites an existing index
+- `push-back` appends (tail copy, or a tail flush into the tree)
+- `push-back-owned` appends when the caller hands over ownership (moves the
+  vector in). Because tails are never shared between versions, owning the
+  vector means owning its tail exclusively, so the tail is mutated in place
+  with no copy. The owned tail is pre-sized to 32 slots (Clojure's
+  transient tail trick) so the in-place append never reallocs. This is a
+  transient-style fast path with the same result as `push-back`; use it in
+  build/churn loops that discard the previous version.
+- `assoc` overwrites an existing index (path-copies the spine)
 - `pop-back` removes the last index
+- reads (`get`) borrow down the spine through `Rc.value-ref` and copy out
+  only the one indexed value — no node copies, no allocation
 
-This gives you O(depth) indexed reads and writes, where depth is bounded by
-the constants above.
+This gives O(log32 n) indexed reads and writes, with the tail making the
+common append case effectively O(1) and allocation-light.
 
 ## Equality and identity
 
@@ -117,18 +154,24 @@ reconstruction.
 
 ## Stack safety
 
-All the deeper traversals are written iteratively rather than via C
-recursion:
+The deeper *unbounded* traversals are written iteratively rather than via
+C recursion:
 
 - list `drop-n`
 - queue/deque reversal
 - trie insert/remove/lookup path rebuilds
 - ord-map path rebuilds
 - heap merge spine traversal
+- hash-map/vector `reduce` (walks the whole structure)
 
 In practice this means deep inputs are bounded by heap memory, not C stack
 depth. The test suite has regressions at 100k–200k elements for the most
 likely offenders.
+
+The HAMT and vector per-operation paths (`node-insert`/`node-remove`,
+`push-tail`/`pop-tail`) are recursive, but their depth is bounded by the
+radix-32 fan-out — at most 7 levels for the vector and ~7 for the HAMT,
+regardless of size — so the recursion is a small constant and safe.
 
 ## Safety model (inherited from `rc`)
 
@@ -140,7 +183,6 @@ likely offenders.
 ## What's deliberately not here yet
 
 - finger-tree-based deque scheduling
-- adaptive hash-trie depth
 - structural `=` for the heap
 - a dedicated structure-level fuzzer (fuzzing happens at the `rc` layer
   instead, since that's where the lifetime risk concentrates)

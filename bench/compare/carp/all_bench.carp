@@ -1,0 +1,222 @@
+; Mirror of the Clojure head-to-head benches.
+; Workloads match clojure/bench.clj operation-for-operation.
+
+(load "../../../persistent.carp")
+(Project.no-echo)
+(load "Bench.carp")
+(use-all Bench IO)
+
+(Persistent.define-vector IntVec Int)
+(Persistent.define-hash-map IntMap Int Int)
+(Persistent.define-ord-map IntOrdMap Int Int)
+(Persistent.define-hash-set IntHashSet Int)
+(Persistent.define-ord-set IntOrdSet Int)
+(Persistent.define-list IntList Int)
+(Persistent.define-queue IntQueue Int)
+
+; ============================================================
+; Builders
+; ============================================================
+
+(defn build-vec [n]
+  (let-do [v (IntVec.empty)]
+    (for [i 0 n] (set! v (IntVec.push-back i &v)))
+    v))
+
+(defn vec-get-sum [v n]
+  (let-do [acc 0]
+    (for [i 0 n] (set! acc (+ acc (Maybe.from (IntVec.get i v) 0))))
+    acc))
+
+(defn vec-assoc [v0 n]
+  (let-do [v @v0]
+    (for [i 0 n] (set! v (Maybe.from (IntVec.assoc i 7 &v) (IntVec.empty))))
+    v))
+
+(defn build-hash-map [n]
+  (let-do [m (IntMap.empty)]
+    (for [i 0 n] (set! m (IntMap.insert i i &m)))
+    m))
+
+(defn hash-map-get-sum [m n]
+  (let-do [acc 0]
+    (for [i 0 n] (set! acc (+ acc (Maybe.from (IntMap.get &i m) 0))))
+    acc))
+
+(defn build-ord-map [n]
+  (let-do [m (IntOrdMap.empty)]
+    (for [i 0 n] (set! m (IntOrdMap.insert i i &m)))
+    m))
+
+(defn ord-map-get-sum [m n]
+  (let-do [acc 0]
+    (for [i 0 n] (set! acc (+ acc (Maybe.from (IntOrdMap.get i m) 0))))
+    acc))
+
+(defn build-hash-set [n]
+  (let-do [s (IntHashSet.empty)]
+    (for [i 0 n] (set! s (IntHashSet.insert i &s)))
+    s))
+
+(defn hash-set-member-count [s n]
+  (let-do [acc 0]
+    (for [i 0 n] (when (IntHashSet.contains? &i s) (set! acc (+ acc 1))))
+    acc))
+
+(defn build-ord-set [n]
+  (let-do [s (IntOrdSet.empty)]
+    (for [i 0 n] (set! s (IntOrdSet.insert i &s)))
+    s))
+
+(defn ord-set-member-count [s n]
+  (let-do [acc 0]
+    (for [i 0 n] (when (IntOrdSet.contains? i s) (set! acc (+ acc 1))))
+    acc))
+
+(defn build-list [n]
+  (let-do [l (IntList.empty)]
+    (for [i 0 n] (set! l (IntList.prepend i &l)))
+    l))
+
+(defn list-sum [l]
+  (IntList.reduce &(fn [acc x] (+ acc x)) 0 l))
+
+(defn queue-cycle [n]
+  (let-do [q (IntQueue.empty) acc 0]
+    (for [i 0 n] (set! q (IntQueue.enqueue i &q)))
+    (for [i 0 n]
+      (match (IntQueue.dequeue &q)
+        (Maybe.Nothing) ()
+        (Maybe.Just p) (do (set! acc (+ acc @(Pair.a &p))) (set! q @(Pair.b &p)))))
+    acc))
+
+; ============================================================
+; Mixed interaction workloads
+; ============================================================
+
+; churn: interleave a read and an update on each step, reassigning the
+; structure (old version discarded). Models a live mutable-feeling loop.
+(defn churn-vec [base rounds]
+  (let-do [v @base acc 0]
+    (for [i 0 rounds]
+      (let [k (Int.mod i 1000)]
+        (do
+          (set! acc (+ acc (Maybe.from (IntVec.get k &v) 0)))
+          (set! v (Maybe.from (IntVec.assoc k i &v) (IntVec.empty))))))
+    acc))
+
+(defn churn-map [base rounds]
+  (let-do [m @base acc 0]
+    (for [i 0 rounds]
+      (let [k (Int.mod i 1000)]
+        (do
+          (set! acc (+ acc (Maybe.from (IntMap.get &k &m) 0)))
+          (set! m (IntMap.insert k i &m)))))
+    acc))
+
+; branch: derive k versions off a shared base, keep them ALL alive at
+; once, then read one element from each. Exercises structural sharing
+; and version retention (the actual reason for persistent structures).
+(defn branch-vec [base k]
+  (let-do [versions (the (Array IntVec) []) acc 0]
+    (for [i 0 k]
+      (set! versions
+            (Array.push-back versions
+                             (Maybe.from (IntVec.assoc i (* i 2) base)
+                                         (IntVec.empty)))))
+    (for [i 0 k]
+      (set! acc (+ acc (Maybe.from (IntVec.get i (Array.unsafe-nth &versions i)) 0))))
+    acc))
+
+(defn branch-map [base k]
+  (let-do [versions (the (Array IntMap) []) acc 0]
+    (for [i 0 k]
+      (set! versions (Array.push-back versions (IntMap.insert i (* i 2) base))))
+    (for [i 0 k]
+      (set! acc (+ acc (Maybe.from (IntMap.get &i (Array.unsafe-nth &versions i)) 0))))
+    acc))
+
+; ============================================================
+; Prebuilt inputs
+; ============================================================
+
+(def *vec1k* (IntVec.empty))
+(def *map1k* (IntMap.empty))
+(def *ord1k* (IntOrdMap.empty))
+(def *hset1k* (IntHashSet.empty))
+(def *oset1k* (IntOrdSet.empty))
+(def *list1k* (IntList.empty))
+
+(defn setup []
+  (do
+    (set! *vec1k* (build-vec 1000))
+    (set! *map1k* (build-hash-map 1000))
+    (set! *ord1k* (build-ord-map 1000))
+    (set! *hset1k* (build-hash-set 1000))
+    (set! *oset1k* (build-ord-set 1000))
+    (set! *list1k* (build-list 1000))))
+
+; ============================================================
+; Bench thunks
+; ============================================================
+
+(defn bench-vec-push-1k [] (build-vec 1000))
+(defn bench-vec-push-10k [] (build-vec 10000))
+(defn bench-vec-get-1k [] (vec-get-sum &*vec1k* 1000))
+(defn bench-vec-assoc-1k [] (vec-assoc &*vec1k* 1000))
+(defn bench-map-insert-1k [] (build-hash-map 1000))
+(defn bench-map-insert-10k [] (build-hash-map 10000))
+(defn bench-map-get-1k [] (hash-map-get-sum &*map1k* 1000))
+(defn bench-ord-insert-1k [] (build-ord-map 1000))
+(defn bench-ord-get-1k [] (ord-map-get-sum &*ord1k* 1000))
+(defn bench-hset-insert-1k [] (build-hash-set 1000))
+(defn bench-hset-member-1k [] (hash-set-member-count &*hset1k* 1000))
+(defn bench-oset-insert-1k [] (build-ord-set 1000))
+(defn bench-oset-member-1k [] (ord-set-member-count &*oset1k* 1000))
+(defn bench-list-prepend-1k [] (build-list 1000))
+(defn bench-list-sum-1k [] (list-sum &*list1k*))
+(defn bench-queue-cycle-1k [] (queue-cycle 1000))
+(defn bench-churn-vec [] (churn-vec &*vec1k* 2000))
+(defn bench-churn-map [] (churn-map &*map1k* 2000))
+(defn bench-branch-vec [] (branch-vec &*vec1k* 64))
+(defn bench-branch-map [] (branch-map &*map1k* 64))
+
+; owned/transient build: push-back-owned mutates the tail in place when
+; the vector is moved in (transient-style). Compare to Clojure's
+; `transient`/`conj!` in bench.clj.
+(defn build-vec-owned [n]
+  (let-do [v (IntVec.empty)]
+    (for [i 0 n] (set! v (IntVec.push-back-owned i v)))
+    v))
+(defn bench-vec-owned-1k [] (build-vec-owned 1000))
+(defn bench-vec-owned-10k [] (build-vec-owned 10000))
+
+(defn run-one [label f]
+  (do (println* label) (bench f) (println "")))
+
+(defn main []
+  (do
+    (setup)
+    (println "=== Carp persistent ===")
+    (run-one "vector push 1k:" bench-vec-push-1k)
+    (run-one "vector push 10k:" bench-vec-push-10k)
+    (run-one "vector get 1k:" bench-vec-get-1k)
+    (run-one "vector assoc 1k:" bench-vec-assoc-1k)
+    (run-one "hash-map insert 1k:" bench-map-insert-1k)
+    (run-one "hash-map insert 10k:" bench-map-insert-10k)
+    (run-one "hash-map get 1k:" bench-map-get-1k)
+    (run-one "ord-map insert 1k:" bench-ord-insert-1k)
+    (run-one "ord-map get 1k:" bench-ord-get-1k)
+    (run-one "hash-set insert 1k:" bench-hset-insert-1k)
+    (run-one "hash-set member 1k:" bench-hset-member-1k)
+    (run-one "ord-set insert 1k:" bench-oset-insert-1k)
+    (run-one "ord-set member 1k:" bench-oset-member-1k)
+    (run-one "list prepend 1k:" bench-list-prepend-1k)
+    (run-one "list sum 1k:" bench-list-sum-1k)
+    (run-one "queue cycle 1k:" bench-queue-cycle-1k)
+    (run-one "churn vec 2k:" bench-churn-vec)
+    (run-one "churn map 2k:" bench-churn-map)
+    (run-one "branch vec x64:" bench-branch-vec)
+    (run-one "branch map x64:" bench-branch-map)
+    (run-one "vector push 1k (owned/transient):" bench-vec-owned-1k)
+    (run-one "vector push 10k (owned/transient):" bench-vec-owned-10k)))
