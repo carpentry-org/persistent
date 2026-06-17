@@ -3620,7 +3620,8 @@ Returns `(Nothing)` when `index` is out of bounds.")
 Clamps to the vector length when `n` exceeds it.")
           (sig take (Fn [Int (Ref %name q)] %name))
           (defn take [n vec-ref]
-            (let-do [limit (Int.min n (Long.to-int @(%vec-count vec-ref)))
+            (let-do [limit (Int.min (Int.max 0 n)
+                                    (Long.to-int @(%vec-count vec-ref)))
                      acc (empty)]
               (for [i 0 limit]
                 (match (get i vec-ref)
@@ -3632,7 +3633,8 @@ Clamps to the vector length when `n` exceeds it.")
 Clamps to the vector length when `n` exceeds it.")
           (sig drop-n (Fn [Int (Ref %name q)] %name))
           (defn drop-n [n vec-ref]
-            (let-do [start (Int.min n (Long.to-int @(%vec-count vec-ref)))
+            (let-do [start (Int.min (Int.max 0 n)
+                                    (Long.to-int @(%vec-count vec-ref)))
                      total (Long.to-int @(%vec-count vec-ref))
                      acc (empty)]
               (for [i start total]

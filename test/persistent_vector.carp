@@ -269,6 +269,13 @@
 
   (assert-equal test
     true
+    (let [v (IntVec.from-array &[10 20 30])
+          t (IntVec.take -1 &v)]
+      (IntVec.empty? &t))
+    "take with negative n yields empty vector")
+
+  (assert-equal test
+    true
     (let [v (IntVec.from-array &[10 20 30 40 50])
           d (IntVec.drop-n 2 &v)
           arr (IntVec.to-array &d)]
@@ -290,6 +297,12 @@
           d (IntVec.drop-n 100 &v)]
       (IntVec.empty? &d))
     "drop-n beyond length yields empty vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          d (IntVec.drop-n -1 &v)] (= &d &v))
+    "drop-n with negative n preserves all elements")
 
   (assert-equal test
     true
