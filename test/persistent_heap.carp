@@ -159,6 +159,81 @@
     (let [h (IntHeap.from-array &(the (Array Int) []))] (IntHeap.empty? &h))
     "from-array on empty array yields empty heap")
 
+  (assert-equal test
+    true
+    (let [h0 (IntHeap.empty)
+          h1 (IntHeap.insert 5 &h0)
+          h2 (IntHeap.insert 2 &h1)
+          h3 (IntHeap.insert 7 &h2)
+          h4 (IntHeap.insert 1 &h3)
+          filtered (IntHeap.filter &(fn [x] (> @x 2)) &h4)
+          arr (IntHeap.to-sorted-array &filtered)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 5)
+           (= @(Array.unsafe-nth &arr 1) 7)))
+    "filter keeps elements satisfying predicate")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.empty)
+          filtered (IntHeap.filter &(fn [x] true) &h)]
+      (IntHeap.empty? &filtered))
+    "filter on empty heap yields empty")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.from-array &[1 2 3])
+          filtered (IntHeap.filter &(fn [x] false) &h)]
+      (IntHeap.empty? &filtered))
+    "filter with always-false yields empty heap")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.from-array &[1 2 3])
+          filtered (IntHeap.filter &(fn [x] true) &h)]
+      (= (IntHeap.length &filtered) 3l))
+    "filter with always-true keeps all elements")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.from-array &[1 2 3])
+          mapped (IntHeap.map &(fn [x] (* x 10)) &h)
+          arr (IntHeap.to-sorted-array &mapped)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 10)
+           (= @(Array.unsafe-nth &arr 1) 20)
+           (= @(Array.unsafe-nth &arr 2) 30)))
+    "map applies function to all elements")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.empty)
+          mapped (IntHeap.map &(fn [x] (+ x 1)) &h)]
+      (IntHeap.empty? &mapped))
+    "map over empty heap yields empty")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.from-array &[3 1 4 1 5 9 2 6])
+          arr (IntHeap.to-sorted-array &h)]
+      (and (= (Array.length &arr) 8)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 1) 1)
+           (= @(Array.unsafe-nth &arr 2) 2)
+           (= @(Array.unsafe-nth &arr 3) 3)
+           (= @(Array.unsafe-nth &arr 4) 4)
+           (= @(Array.unsafe-nth &arr 5) 5)
+           (= @(Array.unsafe-nth &arr 6) 6)
+           (= @(Array.unsafe-nth &arr 7) 9)))
+    "to-sorted-array returns elements in ascending order")
+
+  (assert-equal test
+    true
+    (let [h (IntHeap.empty)
+          arr (IntHeap.to-sorted-array &h)]
+      (= (Array.length &arr) 0))
+    "to-sorted-array on empty heap yields empty array")
+
   (assert-memory-balance test
                          heap-branch-lifecycle
                          0l

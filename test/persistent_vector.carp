@@ -217,6 +217,111 @@
     (let [v (IntVec.from-array &(the (Array Int) []))] (IntVec.empty? &v))
     "from-array on empty array yields empty vector")
 
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          updated (IntVec.update 1 &(fn [x] (+ x 5)) &v)]
+      (match updated
+        (Maybe.Just u)
+          (and (= &(Maybe.Just 10) &(IntVec.get 0 &u))
+               (= &(Maybe.Just 25) &(IntVec.get 1 &u))
+               (= &(Maybe.Just 30) &(IntVec.get 2 &u)))
+        (Maybe.Nothing) false))
+    "update applies function at index")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])]
+      (Maybe.nothing? &(IntVec.update 5 &(fn [x] (+ x 1)) &v)))
+    "update returns Nothing for out-of-bounds index")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          updated (IntVec.update 1 &(fn [x] (+ x 5)) &v)]
+      (= &(Maybe.Just 20) &(IntVec.get 1 &v)))
+    "update preserves original vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30 40 50])
+          t (IntVec.take 3 &v)
+          arr (IntVec.to-array &t)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 10)
+           (= @(Array.unsafe-nth &arr 1) 20)
+           (= @(Array.unsafe-nth &arr 2) 30)))
+    "take returns first n elements")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          t (IntVec.take 0 &v)]
+      (IntVec.empty? &t))
+    "take 0 yields empty vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          t (IntVec.take 100 &v)]
+      (= (IntVec.length &t) 3l))
+    "take beyond length clamps to full vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30 40 50])
+          d (IntVec.drop-n 2 &v)
+          arr (IntVec.to-array &d)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 30)
+           (= @(Array.unsafe-nth &arr 1) 40)
+           (= @(Array.unsafe-nth &arr 2) 50)))
+    "drop-n removes first n elements")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          d (IntVec.drop-n 0 &v)] (= &d &v))
+    "drop-n 0 preserves all elements")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          d (IntVec.drop-n 100 &v)]
+      (IntVec.empty? &d))
+    "drop-n beyond length yields empty vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30 40 50])
+          s (IntVec.subvec 1 4 &v)
+          arr (IntVec.to-array &s)]
+      (and (= (Array.length &arr) 3)
+           (= @(Array.unsafe-nth &arr 0) 20)
+           (= @(Array.unsafe-nth &arr 1) 30)
+           (= @(Array.unsafe-nth &arr 2) 40)))
+    "subvec extracts range [start, end)")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          s (IntVec.subvec 1 1 &v)]
+      (IntVec.empty? &s))
+    "subvec with start=end yields empty vector")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          s (IntVec.subvec 0 3 &v)] (= &s &v))
+    "subvec of full range equals original")
+
+  (assert-equal test
+    true
+    (let [v (IntVec.from-array &[10 20 30])
+          s (IntVec.subvec -5 100 &v)]
+      (= &s &v))
+    "subvec clamps out-of-range indices")
+
   (assert-memory-balance test
                          vec-branch-lifecycle
                          0l
