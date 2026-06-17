@@ -206,6 +206,39 @@
 
   (assert-equal test
     true
+    (let-do [v (IntVec.empty)]
+      (for [i 0 50] (set! v (IntVec.push-back-owned i v)))
+      (= (IntVec.reduce &(fn [acc x] (+ acc x)) 0 &v) 1225))
+    "reduce works across multiple tree leaves (50 elements)")
+
+  (assert-equal test
+    true
+    (let-do [v (IntVec.empty)]
+      (for [i 0 50] (set! v (IntVec.push-back-owned i v)))
+      (let [arr (IntVec.to-array &v)]
+        (and (= (Array.length &arr) 50)
+             (= @(Array.unsafe-nth &arr 0) 0)
+             (= @(Array.unsafe-nth &arr 31) 31)
+             (= @(Array.unsafe-nth &arr 32) 32)
+             (= @(Array.unsafe-nth &arr 49) 49))))
+    "to-array preserves order across leaf boundary")
+
+  (assert-equal test
+    true
+    (let-do [v (IntVec.empty)]
+      (for [i 0 50] (set! v (IntVec.push-back-owned i v)))
+      (IntVec.any? &(fn [x] (= x &49)) &v))
+    "any? finds element in tail (50 elements)")
+
+  (assert-equal test
+    true
+    (let-do [v (IntVec.empty)]
+      (for [i 0 50] (set! v (IntVec.push-back-owned i v)))
+      (IntVec.all? &(fn [x] (< @x 50)) &v))
+    "all? over multi-leaf vector")
+
+  (assert-equal test
+    true
     (let [arr [10 20 30]
           v (IntVec.from-array &arr)
           back (IntVec.to-array &v)]
