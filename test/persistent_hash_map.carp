@@ -310,6 +310,38 @@
       (IntIntMap.empty? &m))
     "from-array on empty array yields empty map")
 
+  (assert-equal test
+    true
+    (let [m0 (IntIntMap.empty)
+          m1 (IntIntMap.insert 1 10 &m0)
+          m2 (IntIntMap.insert 2 20 &m1)
+          k1 1
+          k2 2
+          updated (IntIntMap.update &k1 &(fn [v] (+ v 5)) &m2)]
+      (and (= (IntIntMap.length &updated) 2l)
+           (match (IntIntMap.get &k1 &updated)
+             (Maybe.Just v) (= v 15)
+             (Maybe.Nothing) false)
+           (match (IntIntMap.get &k2 &updated)
+             (Maybe.Just v) (= v 20)
+             (Maybe.Nothing) false)))
+    "update applies function to value at key")
+
+  (assert-equal test
+    true
+    (let [m (IntIntMap.insert 1 10 &(IntIntMap.empty))
+          k 99
+          updated (IntIntMap.update &k &(fn [v] (+ v 1)) &m)]
+      (= &updated &m))
+    "update on missing key returns map unchanged")
+
+  (assert-equal test
+    true
+    (let [k 1
+          updated (IntIntMap.update &k &(fn [v] (+ v 1)) &(IntIntMap.empty))]
+      (IntIntMap.empty? &updated))
+    "update on empty map returns empty map")
+
   (assert-memory-balance test
                          map-branch-lifecycle
                          0l

@@ -217,6 +217,49 @@
     (let [v (IntVec.from-array &(the (Array Int) []))] (IntVec.empty? &v))
     "from-array on empty array yields empty vector")
 
+  (assert-equal test
+    true
+    (let [a (IntVec.from-array &[1 2 3])
+          b (IntVec.from-array &[4 5 6])
+          c (IntVec.concat &a &b)
+          arr (IntVec.to-array &c)]
+      (and (= (Array.length &arr) 6)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 2) 3)
+           (= @(Array.unsafe-nth &arr 3) 4)
+           (= @(Array.unsafe-nth &arr 5) 6)))
+    "concat appends second vector after first")
+
+  (assert-equal test
+    true
+    (let [a (IntVec.from-array &[1 2])
+          c (IntVec.concat &a &(IntVec.empty))]
+      (= &c &a))
+    "concat with empty right is identity")
+
+  (assert-equal test
+    true
+    (let [b (IntVec.from-array &[3 4])
+          c (IntVec.concat &(IntVec.empty) &b)]
+      (= &c &b))
+    "concat with empty left is identity")
+
+  (assert-equal test
+    true
+    (let [c (IntVec.concat &(IntVec.empty) &(IntVec.empty))] (IntVec.empty? &c))
+    "concat of two empties is empty")
+
+  (assert-equal test
+    true
+    (let [a (IntVec.singleton 1)
+          b (IntVec.singleton 2)
+          c (IntVec.concat &a &b)
+          arr (IntVec.to-array &c)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 1)
+           (= @(Array.unsafe-nth &arr 1) 2)))
+    "concat of two singletons")
+
   (assert-memory-balance test
                          vec-branch-lifecycle
                          0l

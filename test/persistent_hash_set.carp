@@ -188,6 +188,61 @@
     (let [s (IntSet.from-array &(the (Array Int) []))] (IntSet.empty? &s))
     "from-array on empty array yields empty set")
 
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))
+          filtered (IntSet.filter &(fn [x] (> @x 1)) &s)]
+      (and (= (IntSet.length &filtered) 2l)
+           (not (IntSet.contains? &1 &filtered))
+           (IntSet.contains? &2 &filtered)
+           (IntSet.contains? &3 &filtered)))
+    "filter keeps elements matching predicate")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          filtered (IntSet.filter &(fn [x] false) &s)]
+      (IntSet.empty? &filtered))
+    "filter with always-false yields empty set")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          filtered (IntSet.filter &(fn [x] true) &s)]
+      (= &filtered &s))
+    "filter with always-true preserves all elements")
+
+  (assert-equal test
+    true
+    (let [filtered (IntSet.filter &(fn [x] true) &(IntSet.empty))]
+      (IntSet.empty? &filtered))
+    "filter on empty set yields empty set")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 3
+                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))
+          mapped (IntSet.map &(fn [x] (* x 10)) &s)]
+      (and (= (IntSet.length &mapped) 3l)
+           (IntSet.contains? &10 &mapped)
+           (IntSet.contains? &20 &mapped)
+           (IntSet.contains? &30 &mapped)))
+    "map applies function to each element")
+
+  (assert-equal test
+    true
+    (let [mapped (IntSet.map &(fn [x] (+ x 1)) &(IntSet.empty))]
+      (IntSet.empty? &mapped))
+    "map over empty set yields empty set")
+
+  (assert-equal test
+    true
+    (let [s (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
+          mapped (IntSet.map &(fn [x] 42) &s)]
+      (and (= (IntSet.length &mapped) 1l) (IntSet.contains? &42 &mapped)))
+    "map that collapses values reduces set size")
+
   (assert-memory-balance test
                          set-branch-lifecycle
                          0l
