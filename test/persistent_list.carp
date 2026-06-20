@@ -207,6 +207,100 @@
     "filter with always-true preserves all elements")
 
   (assert-equal test
+    3
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (match (IntList.nth 0l &l3) (Maybe.Just v) v (Maybe.Nothing) -1))
+    "nth 0 returns first element")
+
+  (assert-equal test
+    1
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (match (IntList.nth 2l &l3) (Maybe.Just v) v (Maybe.Nothing) -1))
+    "nth 2 returns third element")
+
+  (assert-equal test
+    true
+    (let [l (IntList.singleton 1)] (Maybe.nothing? &(IntList.nth 1l &l)))
+    "nth out of bounds returns Nothing")
+
+  (assert-equal test
+    true
+    (Maybe.nothing? &(IntList.nth -1l &(IntList.empty)))
+    "nth negative returns Nothing")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)
+          t (IntList.take 2l &l3)
+          arr (IntList.to-array &t)]
+      (and (= (Array.length &arr) 2)
+           (= @(Array.unsafe-nth &arr 0) 3)
+           (= @(Array.unsafe-nth &arr 1) 2)))
+    "take 2 returns first two elements in order")
+
+  (assert-equal test
+    true
+    (let [l (IntList.singleton 1)
+          t (IntList.take 5l &l)] (= &t &l))
+    "take beyond length returns all elements")
+
+  (assert-equal test
+    true
+    (let [l (IntList.singleton 1)
+          t (IntList.take 0l &l)] (IntList.empty? &t))
+    "take 0 returns empty list")
+
+  (assert-equal test
+    2
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (match (IntList.find &(fn [x] (= @x 2)) &l3)
+        (Maybe.Just v) v
+        (Maybe.Nothing) -1))
+    "find returns first matching element")
+
+  (assert-equal test
+    true
+    (let [l (IntList.singleton 1)]
+      (Maybe.nothing? &(IntList.find &(fn [x] (= @x 99)) &l)))
+    "find returns Nothing when no match")
+
+  (assert-equal test
+    true
+    (Maybe.nothing? &(IntList.find &(fn [x] true) &(IntList.empty)))
+    "find on empty returns Nothing")
+
+  (assert-equal test
+    true
+    (let [l0 (IntList.empty)
+          l1 (IntList.prepend 1 &l0)
+          l2 (IntList.prepend 2 &l1)
+          l3 (IntList.prepend 3 &l2)]
+      (IntList.contains? &2 &l3))
+    "contains? finds present element")
+
+  (assert-equal test
+    false
+    (let [l (IntList.singleton 1)] (IntList.contains? &99 &l))
+    "contains? returns false for absent element")
+
+  (assert-equal test
+    false
+    (IntList.contains? &1 &(IntList.empty))
+    "contains? on empty returns false")
+
+  (assert-equal test
     true
     (let [l0 (IntList.empty)
           l1 (IntList.prepend 1 &l0)
