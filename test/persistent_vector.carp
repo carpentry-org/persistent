@@ -217,6 +217,78 @@
     (let [v (IntVec.from-array &(the (Array Int) []))] (IntVec.empty? &v))
     "from-array on empty array yields empty vector")
 
+  ; --- tests exercising trie traversal (>32 elements spans one leaf) ---
+
+  (assert-equal test
+    true
+    (let-do [src (Array.replicate 50 &1)
+             _ (for [i 0 50] (Array.aset! &src i i))
+             v (IntVec.from-array &src)
+             back (IntVec.to-array &v)]
+      (= &src &back))
+    "from-array/to-array round-trip for 50-element vector")
+
+  (assert-equal test
+    1225
+    (let-do [src (Array.replicate 50 &0)
+             _ (for [i 0 50] (Array.aset! &src i i))
+             v (IntVec.from-array &src)]
+      (IntVec.reduce &(fn [acc x] (+ acc x)) 0 &v))
+    "reduce over 50-element vector sums correctly")
+
+  (assert-equal test
+    true
+    (let-do [src (Array.replicate 50 &0)
+             _ (for [i 0 50] (Array.aset! &src i i))
+             v (IntVec.from-array &src)]
+      (do (IntVec.each &(fn [x] (ignore x)) &v) true))
+    "each over 50-element vector completes")
+
+  (assert-equal test
+    true
+    (let-do [src (Array.replicate 50 &0)
+             _ (for [i 0 50] (Array.aset! &src i i))
+             v (IntVec.from-array &src)
+             mapped (IntVec.map &(fn [x] (+ x 100)) &v)
+             arr (IntVec.to-array &mapped)]
+      (and (= (Array.length &arr) 50)
+           (= @(Array.unsafe-nth &arr 0) 100)
+           (= @(Array.unsafe-nth &arr 49) 149)))
+    "map over 50-element vector")
+
+  (assert-equal test
+    true
+    (let-do [src (Array.replicate 50 &0)
+             _ (for [i 0 50] (Array.aset! &src i i))
+             v (IntVec.from-array &src)
+             filtered (IntVec.filter &(fn [x] (>= @x 25)) &v)
+             arr (IntVec.to-array &filtered)]
+      (and (= (Array.length &arr) 25)
+           (= @(Array.unsafe-nth &arr 0) 25)
+           (= @(Array.unsafe-nth &arr 24) 49)))
+    "filter over 50-element vector")
+
+  ; --- tests exercising two-level trie (>1024 elements) ---
+
+  (assert-equal test
+    true
+    (let-do [n 1100
+             src (Array.replicate n &0)
+             _ (for [i 0 n] (Array.aset! &src i i))
+             v (IntVec.from-array &src)
+             back (IntVec.to-array &v)]
+      (= &src &back))
+    "from-array/to-array round-trip for 1100-element vector")
+
+  (assert-equal test
+    604450
+    (let-do [n 1100
+             src (Array.replicate n &0)
+             _ (for [i 0 n] (Array.aset! &src i i))
+             v (IntVec.from-array &src)]
+      (IntVec.reduce &(fn [acc x] (+ acc x)) 0 &v))
+    "reduce over 1100-element vector sums correctly")
+
   (assert-memory-balance test
                          vec-branch-lifecycle
                          0l

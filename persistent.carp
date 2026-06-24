@@ -3296,24 +3296,72 @@ version; it is a transient-style fast path with the same result as
               (= @(%vec-count a-ref) @(%vec-count b-ref))
               (%node-rc-ptr-eq (%vec-root a-ref) (%vec-root b-ref))))
 
+          (private reduce-node)
+          (hidden reduce-node)
+          (sig reduce-node
+               (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %node-type r) Int] a))
+          (defn reduce-node [f acc node-ref level]
+            (if (= level 0)
+              (let-do [a acc
+                       vs (leaf-values node-ref)]
+                (for [j 0 (Array.length vs)]
+                  (set! a (~f a @(Array.unsafe-nth vs j))))
+                a)
+              (let-do [a acc
+                       cs (branch-children node-ref)]
+                (for [j 0 (Array.length cs)]
+                  (match-ref (Array.unsafe-nth cs j)
+                    (Maybe.Just rc)
+                      (set! a (reduce-node f a (%node-rc-value-ref rc)
+                                           (- level 5)))
+                    (Maybe.Nothing) ()))
+                a)))
+
           (doc reduce "Reduce the vector index 0 to count-1 with accumulator.")
           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
           (defn reduce [f init vec-ref]
             (let-do [acc init
-                     n (Long.to-int @(%vec-count vec-ref))]
-              (for [i 0 n]
-                (match (get i vec-ref)
-                  (Maybe.Nothing) ()
-                  (Maybe.Just v) (set! acc (~f acc v))))
+                     cnt @(%vec-count vec-ref)]
+              (when (> cnt 0l)
+                (let-do [toff (tailoff cnt)]
+                  (when (> toff 0)
+                    (set! acc (reduce-node f acc
+                                (%node-rc-value-ref (%vec-root vec-ref))
+                                @(%vec-shift vec-ref))))
+                  (for [j 0 (Array.length (%vec-tail vec-ref))]
+                    (set! acc (~f acc @(Array.unsafe-nth
+                                        (%vec-tail vec-ref) j))))))
               acc))
+
+          (private each-node)
+          (hidden each-node)
+          (sig each-node
+               (Fn [(Ref (Fn [%value-type] ()) q) (Ref %node-type r) Int] ()))
+          (defn each-node [f node-ref level]
+            (if (= level 0)
+              (let [vs (leaf-values node-ref)]
+                (for [j 0 (Array.length vs)]
+                  (~f @(Array.unsafe-nth vs j))))
+              (let [cs (branch-children node-ref)]
+                (for [j 0 (Array.length cs)]
+                  (match-ref (Array.unsafe-nth cs j)
+                    (Maybe.Just rc)
+                      (each-node f (%node-rc-value-ref rc) (- level 5))
+                    (Maybe.Nothing) ())))))
 
           (doc each
             "Invoke a side-effecting function on each value in index order.")
           (sig each (Fn [(Ref (Fn [%value-type] ()) q) (Ref %name r)] ()))
           (defn each [f vec-ref]
-            (let-do [n (Long.to-int @(%vec-count vec-ref))]
-              (for [i 0 n]
-                (match (get i vec-ref) (Maybe.Nothing) () (Maybe.Just v) (~f v)))))
+            (let [cnt @(%vec-count vec-ref)]
+              (when (> cnt 0l)
+                (let-do [toff (tailoff cnt)]
+                  (when (> toff 0)
+                    (each-node f
+                               (%node-rc-value-ref (%vec-root vec-ref))
+                               @(%vec-shift vec-ref)))
+                  (for [j 0 (Array.length (%vec-tail vec-ref))]
+                    (~f @(Array.unsafe-nth (%vec-tail vec-ref) j)))))))
 
           (doc to-array "Copy all values into an `Array` in index order.")
           (sig to-array (Fn [(Ref %name q)] (Array %value-type)))
@@ -3324,7 +3372,7 @@ version; it is a transient-style fast path with the same result as
             "Build a vector from an `Array`, preserving index order.")
           (sig from-array (Fn [(Ref (Array %value-type) q)] %name))
           (defn from-array [arr-ref]
-            (Array.reduce &(fn [acc x] (push-back @x &acc)) (empty) arr-ref))
+            (Array.reduce &(fn [acc x] (push-back-owned @x acc)) (empty) arr-ref))
 
           (doc singleton "Create a singleton vector.")
           (sig singleton (Fn [%value-type] %name))
@@ -3356,7 +3404,7 @@ version; it is a transient-style fast path with the same result as
           (sig map
                (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
           (defn map [f vec-ref]
-            (reduce &(fn [acc x] (push-back (~f x) &acc)) (empty) vec-ref))
+            (reduce &(fn [acc x] (push-back-owned (~f x) acc)) (empty) vec-ref))
 
           (doc filter
             "Keep only elements satisfying a predicate, preserving index order.")
@@ -3364,7 +3412,7 @@ version; it is a transient-style fast path with the same result as
                (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] %name))
           (defn filter [pred vec-ref]
             (reduce
-              &(fn [acc x] (if (~pred &x) (push-back x &acc) acc))
+              &(fn [acc x] (if (~pred &x) (push-back-owned x acc) acc))
               (empty)
               vec-ref))
 
