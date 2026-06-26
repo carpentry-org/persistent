@@ -3553,27 +3553,26 @@ version; it is a transient-style fast path with the same result as
           (sig each-node
                (Fn [(Ref (Fn [%value-type] ()) q) (Ref %node-rc-type r) Int] ()))
           (defn each-node [f node-rc-ref level]
-            (let [stack (the (Array (Pair %node-rc-type Int)) [])]
-              (let-do [s (Array.push-back stack (Pair.init @node-rc-ref level))]
-                (while (> (Array.length &s) 0)
-                  (let [frame (Array.pop-back! &s)
-                        node-ref (%node-rc-value-ref (Pair.a &frame))
-                        lvl @(Pair.b &frame)]
-                    (if (= lvl 0)
-                      (let [vs (leaf-values node-ref)]
-                        (for [j 0 (Array.length vs)]
-                          (~f @(Array.unsafe-nth vs j))))
-                      (let [cs (branch-children node-ref)
-                            len (Array.length cs)]
-                        (for [j 0 len]
-                          (let [k (- (- len 1) j)]
-                            (match-ref (Array.unsafe-nth cs k)
-                              (Maybe.Just child-rc)
-                                (set! s
-                                      (Array.push-back s
-                                                       (Pair.init @child-rc
-                                                                  (- lvl 5))))
-                              (Maybe.Nothing) ()))))))))))
+            (let-do [stack (the (Array (Pair %node-rc-type Int)) [])]
+              (set! stack (Array.push-back stack (Pair.init @node-rc-ref level)))
+              (while (> (Array.length &stack) 0)
+                (let [frame (Array.pop-back! &stack)
+                      node-ref (%node-rc-value-ref (Pair.a &frame))
+                      lvl @(Pair.b &frame)]
+                  (if (= lvl 0)
+                    (let [vs (leaf-values node-ref)]
+                      (for [j 0 (Array.length vs)] (~f @(Array.unsafe-nth vs j))))
+                    (let [cs (branch-children node-ref)
+                          len (Array.length cs)]
+                      (for [j 0 len]
+                        (let [k (- (- len 1) j)]
+                          (match-ref (Array.unsafe-nth cs k)
+                            (Maybe.Just child-rc)
+                              (set! stack
+                                    (Array.push-back stack
+                                                     (Pair.init @child-rc
+                                                                (- lvl 5))))
+                            (Maybe.Nothing) ())))))))))
 
           (doc each
             "Invoke a side-effecting function on each value in index order.")
