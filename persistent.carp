@@ -9,17 +9,19 @@
 (defmodule Persistent
   (doc popcount "Population count of the low 32 bits, for HAMT bitmap nodes.")
   (hidden popcount)
-  (deftemplate popcount (Fn [Int] Int)
-    "int $NAME(int x)"
-    "$DECL { return __builtin_popcount((unsigned int)x); }")
+  (deftemplate popcount
+               (Fn [Int] Int)
+               "int $NAME(int x)"
+               "$DECL { return __builtin_popcount((unsigned int)x); }")
 
   (doc array-reserve!
     "Grow an array's capacity to at least `n` without changing its length.
 Lets a vector's owned tail be pre-sized so in-place appends never realloc.")
   (hidden array-reserve!)
-  (deftemplate array-reserve! (Fn [(Ref (Array a)) Int] ())
-    "void $NAME(Array *aRef, int n)"
-    "$DECL { if(aRef->capacity < n) { aRef->capacity = n; aRef->data = CARP_REALLOC(aRef->data, sizeof($a) * n); } }"))
+  (deftemplate array-reserve!
+               (Fn [(Ref (Array a)) Int] ())
+               "void $NAME(Array *aRef, int n)"
+               "$DECL { if(aRef->capacity < n) { aRef->capacity = n; aRef->data = CARP_REALLOC(aRef->data, sizeof($a) * n); } }"))
 
 (defmodule Persistent
   (doc define-list "Generate a persistent singly linked list type.
@@ -541,7 +543,6 @@ This generates:
                     (Maybe.Just @head-rc)
                     (sibling-find label (%node-sibling head-ref))))))
 
-
           (private sibling-upsert)
           (hidden sibling-upsert)
           (sig sibling-upsert
@@ -572,8 +573,6 @@ This generates:
                       (Pair.init (Maybe.Just (%node-rc-new rebuilt))
                                  @(Pair.b &rec)))))))
 
-
-
           (private sibling-remove)
           (hidden sibling-remove)
           (sig sibling-remove
@@ -587,18 +586,14 @@ This generates:
                 (let [head-node (%node-rc-get head-rc)]
                   (if (node-label-matches? @&label &head-node)
                     (Pair.init @(%node-sibling &head-node) true)
-                    (let [rec (sibling-remove label
-                                              (%node-sibling &head-node))]
+                    (let [rec (sibling-remove label (%node-sibling &head-node))]
                       (if (not @(Pair.b &rec))
                         (Pair.init (Maybe.Just @head-rc) false)
                         (let [rebuilt (%node-init @(%node-label &head-node)
                                                   @(%node-value &head-node)
                                                   @(%node-child &head-node)
                                                   @(Pair.a &rec))]
-                          (Pair.init (Maybe.Just (%node-rc-new rebuilt))
-                                     true))))))))
-
-
+                          (Pair.init (Maybe.Just (%node-rc-new rebuilt)) true))))))))
 
           (private build-branch)
           (hidden build-branch)
@@ -671,8 +666,6 @@ This generates:
                                               @(%node-sibling node-ref))]
                         (Pair.init (%node-rc-new node2) true)))))))
 
-
-
           (private get-in-siblings)
           (hidden get-in-siblings)
           (sig get-in-siblings
@@ -695,10 +688,7 @@ This generates:
                                          (%node-child head-ref)
                                          key-ref
                                          next-i)))
-                    (get-in-siblings part
-                                     (%node-sibling head-ref)
-                                     key-ref
-                                     index)))))
+                    (get-in-siblings part (%node-sibling head-ref) key-ref index)))))
 
           (private get-node)
           (hidden get-node)
@@ -714,7 +704,6 @@ This generates:
                                  (%node-child node-ref)
                                  key-ref
                                  index))))
-
 
           (private remove-node)
           (hidden remove-node)
@@ -735,8 +724,7 @@ This generates:
                                             @(%node-child node-ref)
                                             @(%node-sibling node-ref))
                           empty2 (node-empty? &node2)]
-                      (Pair.init (%node-rc-new node2)
-                                 (Pair.init true empty2))))
+                      (Pair.init (%node-rc-new node2) (Pair.init true empty2))))
                 (let [part @(Array.unsafe-nth key-ref index)]
                   (match (sibling-find @&part (%node-child node-ref))
                     (Maybe.Nothing)
@@ -748,11 +736,12 @@ This generates:
                           (Pair.init @node-rc-ref @(Pair.b &rec))
                           (let [child-empty @(Pair.b (Pair.b &rec))
                                 children2 (if child-empty
-                                  @(Pair.a &(sibling-remove part
-                                                            (%node-child node-ref)))
-                                  @(Pair.a &(sibling-upsert part
-                                                            (Pair.a &rec)
-                                                            (%node-child node-ref))))
+                                  @(Pair.a
+                                    &(sibling-remove part (%node-child node-ref)))
+                                  @(Pair.a
+                                    &(sibling-upsert part
+                                                     (Pair.a &rec)
+                                                     (%node-child node-ref))))
                                 rebuilt (%node-init @(%node-label node-ref)
                                                     @(%node-value node-ref)
                                                     children2
@@ -760,8 +749,6 @@ This generates:
                                 empty2 (node-empty? &rebuilt)]
                             (Pair.init (%node-rc-new rebuilt)
                                        (Pair.init true empty2))))))))))
-
-
 
           (private subtree-has-entry?)
           (hidden subtree-has-entry?)
@@ -793,7 +780,6 @@ This generates:
                           (Maybe.Just s) (set! stack (Array.push-back stack @s))))))))
               found))
 
-
           (private find-prefix-node)
           (hidden find-prefix-node)
           (sig find-prefix-node
@@ -809,7 +795,6 @@ This generates:
                   (Maybe.Nothing) (Maybe.Nothing)
                   (Maybe.Just child-rc)
                     (find-prefix-node &child-rc prefix-ref (Int.inc index))))))
-
 
           (doc empty "Create an empty trie.")
           (sig empty (Fn [] %name))
@@ -911,11 +896,11 @@ This generates:
                         (match-ref (%node-value node-ref)
                           (Maybe.Nothing) ()
                           (Maybe.Just v) (set! acc (~f acc @v)))
-                        (set! stack (Array.push-back stack @(%node-child node-ref)))
+                        (set! stack
+                              (Array.push-back stack @(%node-child node-ref)))
                         (set! stack
                               (Array.push-back stack @(%node-sibling node-ref)))))))
               acc))
-
 
           (doc reduce
             "Reduce over `(Pair key value)` entries in DFS sibling-insertion order.")
@@ -968,7 +953,6 @@ This generates:
                                                               false)))))))))
               acc))
 
-
           (doc each
             "Invoke a side-effecting function on each `(Pair key value)` entry.")
           (sig each
@@ -1014,8 +998,7 @@ This generates:
                             (set! stack
                                   (Array.push-back stack
                                                    (Pair.init @(%node-child node-ref)
-                                                              false))))))))))
-)
+                                                              false)))))))))))
 
           (doc to-array
             "Copy all entries into an `Array` of `(Pair key value)`.")
@@ -2409,11 +2392,11 @@ Example:
         (register-type %node-rc-type "void*")
         (deftype %slot-type
           (Entry [%key-type %value-type])
-          (Sub   [%node-rc-type]))
+          (Sub [%node-rc-type]))
         (hidden %slot-type)
         (deftype %node-type
           (Collision [Int (Array (Pair %key-type %value-type))])
-          (Bitmap    [Int (Array %slot-type)]))
+          (Bitmap [Int (Array %slot-type)]))
         (hidden %node-type)
         (Rc.define %node-rc-type %node-type)
 
@@ -2434,14 +2417,17 @@ Example:
               (%slot-sub rc) (%slot-sub (%node-rc-copy rc))))
           (implements copy %slot-copy))
 
-        (deftype %name [root (Maybe %node-rc-type) count Long])
+        (deftype %name [root (Maybe %node-rc-type)
+                        count Long])
 
         (defmodule %name
           ; --- bucket helpers (also used for Collision nodes) ---
           (private bucket-find)
           (hidden bucket-find)
           (sig bucket-find
-               (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)] Int))
+               (Fn
+                 [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)]
+                 Int))
           (defn bucket-find [bucket-ref key-ref]
             (let-do [idx -1]
               (for [i 0 (Array.length bucket-ref)]
@@ -2452,8 +2438,9 @@ Example:
           (private bucket-get)
           (hidden bucket-get)
           (sig bucket-get
-               (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)]
-                   (Maybe %value-type)))
+               (Fn
+                 [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)]
+                 (Maybe %value-type)))
           (defn bucket-get [bucket-ref key-ref]
             (let [idx (bucket-find bucket-ref key-ref)]
               (if (<= 0 idx)
@@ -2463,8 +2450,11 @@ Example:
           (private bucket-upsert)
           (hidden bucket-upsert)
           (sig bucket-upsert
-               (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r) %value-type]
-                   (Pair (Array (Pair %key-type %value-type)) Bool)))
+               (Fn
+                 [(Ref (Array (Pair %key-type %value-type)) q)
+                  (Ref %key-type r)
+                  %value-type]
+                 (Pair (Array (Pair %key-type %value-type)) Bool)))
           (defn bucket-upsert [bucket-ref key-ref value]
             (let-do [out (the (Array (Pair %key-type %value-type)) [])
                      found false]
@@ -2472,18 +2462,23 @@ Example:
                 (let [entry (Array.unsafe-nth bucket-ref i)]
                   (if (= (Pair.a entry) key-ref)
                     (do
-                      (set! out (Array.push-back out (Pair.init-from-refs key-ref &value)))
+                      (set! out
+                            (Array.push-back out
+                                             (Pair.init-from-refs key-ref &value)))
                       (set! found true))
                     (set! out (Array.push-back out @entry)))))
               (if found
                 (Pair.init out false)
-                (Pair.init (Array.push-back out (Pair.init-from-refs key-ref &value)) true))))
+                (Pair.init
+                  (Array.push-back out (Pair.init-from-refs key-ref &value))
+                  true))))
 
           (private bucket-remove)
           (hidden bucket-remove)
           (sig bucket-remove
-               (Fn [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)]
-                   (Pair (Array (Pair %key-type %value-type)) Bool)))
+               (Fn
+                 [(Ref (Array (Pair %key-type %value-type)) q) (Ref %key-type r)]
+                 (Pair (Array (Pair %key-type %value-type)) Bool)))
           (defn bucket-remove [bucket-ref key-ref]
             (let-do [out (the (Array (Pair %key-type %value-type)) [])
                      removed false]
@@ -2503,7 +2498,8 @@ Example:
           (private frag)
           (hidden frag)
           (sig frag (Fn [Int Int] Int))
-          (defn frag [hash shift] (Int.bit-and (Int.bit-shift-right hash shift) 31))
+          (defn frag [hash shift]
+            (Int.bit-and (Int.bit-shift-right hash shift) 31))
 
           (private bitpos)
           (hidden bitpos)
@@ -2513,15 +2509,19 @@ Example:
           (private bindex)
           (hidden bindex)
           (sig bindex (Fn [Int Int] Int))
-          (defn bindex [bm bit] (Persistent.popcount (Int.bit-and bm (Int.dec bit))))
+          (defn bindex [bm bit]
+            (Persistent.popcount (Int.bit-and bm (Int.dec bit))))
 
           (private array-insert-at)
           (hidden array-insert-at)
           (sig array-insert-at
-               (Fn [(Ref (Array %slot-type) q) Int %slot-type] (Array %slot-type)))
+               (Fn
+                 [(Ref (Array %slot-type) q) Int %slot-type]
+                 (Array %slot-type)))
           (defn array-insert-at [arr idx x]
             (let-do [out (the (Array %slot-type) [])]
-              (for [i 0 idx] (set! out (Array.push-back out @(Array.unsafe-nth arr i))))
+              (for [i 0 idx]
+                (set! out (Array.push-back out @(Array.unsafe-nth arr i))))
               (set! out (Array.push-back out x))
               (for [i idx (Array.length arr)]
                 (set! out (Array.push-back out @(Array.unsafe-nth arr i))))
@@ -2530,7 +2530,9 @@ Example:
           (private array-set-at)
           (hidden array-set-at)
           (sig array-set-at
-               (Fn [(Ref (Array %slot-type) q) Int %slot-type] (Array %slot-type)))
+               (Fn
+                 [(Ref (Array %slot-type) q) Int %slot-type]
+                 (Array %slot-type)))
           (defn array-set-at [arr idx x]
             (let-do [out @arr] (Array.aset! &out idx x) out))
 
@@ -2541,44 +2543,72 @@ Example:
           (defn array-remove-at [arr idx]
             (let-do [out (the (Array %slot-type) [])]
               (for [i 0 (Array.length arr)]
-                (when (/= i idx) (set! out (Array.push-back out @(Array.unsafe-nth arr i)))))
+                (when (/= i idx)
+                  (set! out (Array.push-back out @(Array.unsafe-nth arr i)))))
               out))
 
           ; build a node holding two distinct-key entries
           (private merge-entries)
           (hidden merge-entries)
           (sig merge-entries
-               (Fn [%key-type %value-type Int %key-type %value-type Int Int] %node-rc-type))
+               (Fn
+                 [%key-type %value-type Int %key-type %value-type Int Int]
+                 %node-rc-type))
           (defn merge-entries [k1 v1 h1 k2 v2 h2 shift]
             (if (= h1 h2)
-              (%node-rc-new (%node-collision h1 [(Pair.init k1 v1) (Pair.init k2 v2)]))
-              (let [f1 (frag h1 shift) f2 (frag h2 shift)]
+              (%node-rc-new
+                (%node-collision h1 [(Pair.init k1 v1) (Pair.init k2 v2)]))
+              (let [f1 (frag h1 shift)
+                    f2 (frag h2 shift)]
                 (if (= f1 f2)
-                  (%node-rc-new (%node-bitmap (bitpos f1)
-                    [(%slot-sub (merge-entries k1 v1 h1 k2 v2 h2 (+ shift 5)))]))
-                  (%node-rc-new (%node-bitmap (Int.bit-or (bitpos f1) (bitpos f2))
-                    (if (< f1 f2)
-                      [(%slot-entry k1 v1) (%slot-entry k2 v2)]
-                      [(%slot-entry k2 v2) (%slot-entry k1 v1)])))))))
+                  (%node-rc-new
+                    (%node-bitmap (bitpos f1)
+                                  [(%slot-sub
+                                     (merge-entries k1
+                                                    v1
+                                                    h1
+                                                    k2
+                                                    v2
+                                                    h2
+                                                    (+ shift 5)))]))
+                  (%node-rc-new
+                    (%node-bitmap (Int.bit-or (bitpos f1) (bitpos f2))
+                                  (if (< f1 f2)
+                                    [(%slot-entry k1 v1) (%slot-entry k2 v2)]
+                                    [(%slot-entry k2 v2) (%slot-entry k1 v1)])))))))
 
           ; split a collision node and a new entry (different hash) into a bitmap
           (private merge-collision-entry)
           (hidden merge-collision-entry)
           (sig merge-collision-entry
-               (Fn [%node-rc-type Int %key-type %value-type Int Int] %node-rc-type))
+               (Fn
+                 [%node-rc-type Int %key-type %value-type Int Int]
+                 %node-rc-type))
           (defn merge-collision-entry [coll-rc chash key value hash shift]
-            (let [f1 (frag chash shift) f2 (frag hash shift)]
+            (let [f1 (frag chash shift)
+                  f2 (frag hash shift)]
               (if (= f1 f2)
-                (%node-rc-new (%node-bitmap (bitpos f1)
-                  [(%slot-sub (merge-collision-entry coll-rc chash key value hash (+ shift 5)))]))
-                (%node-rc-new (%node-bitmap (Int.bit-or (bitpos f1) (bitpos f2))
-                  (if (< f1 f2)
-                    [(%slot-sub coll-rc) (%slot-entry key value)]
-                    [(%slot-entry key value) (%slot-sub coll-rc)]))))))
+                (%node-rc-new
+                  (%node-bitmap (bitpos f1)
+                                [(%slot-sub
+                                   (merge-collision-entry coll-rc
+                                                          chash
+                                                          key
+                                                          value
+                                                          hash
+                                                          (+ shift 5)))]))
+                (%node-rc-new
+                  (%node-bitmap (Int.bit-or (bitpos f1) (bitpos f2))
+                                (if (< f1 f2)
+                                  [(%slot-sub coll-rc) (%slot-entry key value)]
+                                  [(%slot-entry key value) (%slot-sub coll-rc)]))))))
 
           (private node-get)
           (hidden node-get)
-          (sig node-get (Fn [(Ref %node-rc-type q) Int (Ref %key-type r) Int] (Maybe %value-type)))
+          (sig node-get
+               (Fn
+                 [(Ref %node-rc-type q) Int (Ref %key-type r) Int]
+                 (Maybe %value-type)))
           (defn node-get [node-rc-ref hash key-ref shift]
             (let [node (%node-rc-value-ref node-rc-ref)]
               (match-ref node
@@ -2589,76 +2619,147 @@ Example:
                     (if (= 0 (Int.bit-and @bm bit))
                       (Maybe.Nothing)
                       (match-ref (Array.unsafe-nth slots (bindex @bm bit))
-                        (%slot-entry ek ev) (if (= ek key-ref) (Maybe.Just @ev) (Maybe.Nothing))
+                        (%slot-entry ek ev)
+                          (if (= ek key-ref) (Maybe.Just @ev) (Maybe.Nothing))
                         (%slot-sub rc) (node-get rc hash key-ref (+ shift 5))))))))
 
           (private node-insert)
           (hidden node-insert)
           (sig node-insert
-               (Fn [(Ref %node-rc-type q) Int (Ref %key-type r) %value-type Int]
-                   (Pair %node-rc-type Bool)))
+               (Fn
+                 [(Ref %node-rc-type q) Int (Ref %key-type r) %value-type Int]
+                 (Pair %node-rc-type Bool)))
           (defn node-insert [node-rc-ref hash key-ref value shift]
             (let [node (%node-rc-value-ref node-rc-ref)]
               (match-ref node
                 (%node-collision h entries)
                   (if (= @h hash)
                     (let [rec (bucket-upsert entries key-ref value)]
-                      (Pair.init (%node-rc-new (%node-collision hash @(Pair.a &rec)))
-                                 @(Pair.b &rec)))
-                    (Pair.init (merge-collision-entry @node-rc-ref @h @key-ref value hash shift) true))
+                      (Pair.init
+                        (%node-rc-new (%node-collision hash @(Pair.a &rec)))
+                        @(Pair.b &rec)))
+                    (Pair.init
+                      (merge-collision-entry @node-rc-ref
+                                             @h
+                                             @key-ref
+                                             value
+                                             hash
+                                             shift)
+                      true))
                 (%node-bitmap bm slots)
                   (let [bit (bitpos (frag hash shift))
                         idx (bindex @bm bit)]
                     (if (= 0 (Int.bit-and @bm bit))
-                      (Pair.init (%node-rc-new (%node-bitmap (Int.bit-or @bm bit)
-                                   (array-insert-at slots idx (%slot-entry @key-ref value)))) true)
+                      (Pair.init
+                        (%node-rc-new
+                          (%node-bitmap (Int.bit-or @bm bit)
+                                        (array-insert-at slots
+                                                         idx
+                                                         (%slot-entry @key-ref
+                                                                      value))))
+                        true)
                       (match-ref (Array.unsafe-nth slots idx)
                         (%slot-entry ek ev)
                           (if (= ek key-ref)
-                            (Pair.init (%node-rc-new (%node-bitmap @bm
-                                         (array-set-at slots idx (%slot-entry @key-ref value)))) false)
-                            (let [sub (merge-entries @ek @ev (khash ek) @key-ref value hash (+ shift 5))]
-                              (Pair.init (%node-rc-new (%node-bitmap @bm
-                                           (array-set-at slots idx (%slot-sub sub)))) true)))
+                            (Pair.init
+                              (%node-rc-new
+                                (%node-bitmap @bm
+                                              (array-set-at slots
+                                                            idx
+                                                            (%slot-entry @key-ref
+                                                                         value))))
+                              false)
+                            (let [sub (merge-entries @ek
+                                                     @ev
+                                                     (khash ek)
+                                                     @key-ref
+                                                     value
+                                                     hash
+                                                     (+ shift 5))]
+                              (Pair.init
+                                (%node-rc-new
+                                  (%node-bitmap @bm
+                                                (array-set-at slots
+                                                              idx
+                                                              (%slot-sub sub))))
+                                true)))
                         (%slot-sub rc)
-                          (let [rec (node-insert rc hash key-ref value (+ shift 5))]
-                            (Pair.init (%node-rc-new (%node-bitmap @bm
-                                         (array-set-at slots idx (%slot-sub @(Pair.a &rec))))) @(Pair.b &rec)))))))))
+                          (let [rec (node-insert rc
+                                                 hash
+                                                 key-ref
+                                                 value
+                                                 (+ shift 5))]
+                            (Pair.init
+                              (%node-rc-new
+                                (%node-bitmap @bm
+                                              (array-set-at slots
+                                                            idx
+                                                            (%slot-sub @(Pair.a &rec)))))
+                              @(Pair.b &rec)))))))))
 
           (private node-remove)
           (hidden node-remove)
           (sig node-remove
-               (Fn [(Ref %node-rc-type q) Int (Ref %key-type r) Int]
-                   (Pair (Maybe %node-rc-type) Bool)))
+               (Fn
+                 [(Ref %node-rc-type q) Int (Ref %key-type r) Int]
+                 (Pair (Maybe %node-rc-type) Bool)))
           (defn node-remove [node-rc-ref hash key-ref shift]
             (let [node (%node-rc-value-ref node-rc-ref)]
               (match-ref node
                 (%node-collision h entries)
-                  (if (/= @h hash) (Pair.init (Maybe.Just @node-rc-ref) false)
+                  (if (/= @h hash)
+                    (Pair.init (Maybe.Just @node-rc-ref) false)
                     (let [rec (bucket-remove entries key-ref)]
-                      (if (not @(Pair.b &rec)) (Pair.init (Maybe.Just @node-rc-ref) false)
-                        (Pair.init (Maybe.Just (%node-rc-new (%node-collision hash @(Pair.a &rec)))) true))))
+                      (if (not @(Pair.b &rec))
+                        (Pair.init (Maybe.Just @node-rc-ref) false)
+                        (Pair.init
+                          (Maybe.Just
+                            (%node-rc-new (%node-collision hash @(Pair.a &rec))))
+                          true))))
                 (%node-bitmap bm slots)
                   (let [bit (bitpos (frag hash shift))]
-                    (if (= 0 (Int.bit-and @bm bit)) (Pair.init (Maybe.Just @node-rc-ref) false)
+                    (if (= 0 (Int.bit-and @bm bit))
+                      (Pair.init (Maybe.Just @node-rc-ref) false)
                       (let [idx (bindex @bm bit)]
                         (match-ref (Array.unsafe-nth slots idx)
                           (%slot-entry ek ev)
                             (if (= ek key-ref)
                               (let [nbm (Int.bit-and @bm (- -1 bit))]
-                                (if (= 0 nbm) (Pair.init (Maybe.Nothing) true)
-                                  (Pair.init (Maybe.Just (%node-rc-new (%node-bitmap nbm (array-remove-at slots idx)))) true)))
+                                (if (= 0 nbm)
+                                  (Pair.init (Maybe.Nothing) true)
+                                  (Pair.init
+                                    (Maybe.Just
+                                      (%node-rc-new
+                                        (%node-bitmap nbm
+                                                      (array-remove-at slots idx))))
+                                    true)))
                               (Pair.init (Maybe.Just @node-rc-ref) false))
                           (%slot-sub rc)
                             (let [rec (node-remove rc hash key-ref (+ shift 5))]
-                              (if (not @(Pair.b &rec)) (Pair.init (Maybe.Just @node-rc-ref) false)
+                              (if (not @(Pair.b &rec))
+                                (Pair.init (Maybe.Just @node-rc-ref) false)
                                 (match-ref (Pair.a &rec)
                                   (Maybe.Nothing)
                                     (let [nbm (Int.bit-and @bm (- -1 bit))]
-                                      (if (= 0 nbm) (Pair.init (Maybe.Nothing) true)
-                                        (Pair.init (Maybe.Just (%node-rc-new (%node-bitmap nbm (array-remove-at slots idx)))) true)))
+                                      (if (= 0 nbm)
+                                        (Pair.init (Maybe.Nothing) true)
+                                        (Pair.init
+                                          (Maybe.Just
+                                            (%node-rc-new
+                                              (%node-bitmap nbm
+                                                            (array-remove-at slots
+                                                                             idx))))
+                                          true)))
                                   (Maybe.Just sub2)
-                                    (Pair.init (Maybe.Just (%node-rc-new (%node-bitmap @bm (array-set-at slots idx (%slot-sub @sub2))))) true))))))))))) ; node-remove
+                                    (Pair.init
+                                      (Maybe.Just
+                                        (%node-rc-new
+                                          (%node-bitmap @bm
+                                                        (array-set-at slots
+                                                                      idx
+                                                                      (%slot-sub @sub2)))))
+                                      true)))))))))))
+          ; node-remove
 
           ; --- public API ---
           (doc empty "Create an empty hash map.")
@@ -2683,7 +2784,9 @@ Example:
           (doc contains? "Returns `true` when key exists in hash map.")
           (sig contains? (Fn [(Ref %key-type q) (Ref %name r)] Bool))
           (defn contains? [key-ref map-ref]
-            (match (get key-ref map-ref) (Maybe.Nothing) false (Maybe.Just _) true))
+            (match (get key-ref map-ref)
+              (Maybe.Nothing) false
+              (Maybe.Just _) true))
 
           (doc insert "Insert or replace value for key, returning a new map.")
           (sig insert (Fn [%key-type %value-type (Ref %name q)] %name))
@@ -2691,8 +2794,12 @@ Example:
             (let [h (khash &key)]
               (match-ref (%map-root map-ref)
                 (Maybe.Nothing)
-                  (%map-init (Maybe.Just (%node-rc-new (%node-bitmap (bitpos (frag h 0))
-                               [(%slot-entry key value)]))) 1l)
+                  (%map-init
+                    (Maybe.Just
+                      (%node-rc-new
+                        (%node-bitmap (bitpos (frag h 0))
+                                      [(%slot-entry key value)])))
+                    1l)
                 (Maybe.Just root-rc)
                   (let [rec (node-insert root-rc h &key value 0)]
                     (%map-init (Maybe.Just @(Pair.a &rec))
@@ -2715,20 +2822,30 @@ Example:
                     @map-ref
                     (%map-init @(Pair.a &rec) (Long.dec @(%map-count map-ref)))))))
 
-          (doc ptr-eq "Pointer identity check for backing root plus count equality.")
+          (doc ptr-eq
+            "Pointer identity check for backing root plus count equality.")
           (sig ptr-eq (Fn [(Ref %name q) (Ref %name r)] Bool))
           (defn ptr-eq [a-ref b-ref]
-            (and (= @(%map-count a-ref) @(%map-count b-ref))
+            (and
+              (= @(%map-count a-ref) @(%map-count b-ref))
               (match-ref (%map-root a-ref)
-                (Maybe.Nothing) (match-ref (%map-root b-ref) (Maybe.Nothing) true (Maybe.Just _) false)
+                (Maybe.Nothing)
+                  (match-ref (%map-root b-ref)
+                    (Maybe.Nothing) true
+                    (Maybe.Just _) false)
                 (Maybe.Just ra)
                   (match-ref (%map-root b-ref)
                     (Maybe.Nothing) false
                     (Maybe.Just rb) (%node-rc-ptr-eq ra rb)))))
 
-          (doc reduce "Reduce over `(Pair key value)` entries in unspecified order.")
+          (doc reduce
+            "Reduce over `(Pair key value)` entries in unspecified order.")
           (sig reduce
-               (Fn [(Ref (Fn [a (Pair %key-type %value-type)] a) q) a (Ref %name r)] a))
+               (Fn
+                 [(Ref (Fn [a (Pair %key-type %value-type)] a) q)
+                  a
+                  (Ref %name r)]
+                 a))
           ; iterative (explicit node stack): recursing while passing the
           ; ref-to-fn `f` builds an infinite function type in inference.
           (defn reduce [f init map-ref]
@@ -2747,25 +2864,36 @@ Example:
                         (%node-bitmap bm slots)
                           (for [i 0 (Array.length slots)]
                             (match-ref (Array.unsafe-nth slots i)
-                              (%slot-entry k v) (set! acc (~f acc (Pair.init @k @v)))
-                              (%slot-sub crc) (set! stack (Array.push-back stack @crc)))))))
+                              (%slot-entry k v)
+                                (set! acc (~f acc (Pair.init @k @v)))
+                              (%slot-sub crc)
+                                (set! stack (Array.push-back stack @crc)))))))
                   acc)))
 
-          (doc each "Invoke a side-effecting function on each `(Pair key value)` entry.")
+          (doc each
+            "Invoke a side-effecting function on each `(Pair key value)` entry.")
           (sig each
-               (Fn [(Ref (Fn [(Pair %key-type %value-type)] ()) q) (Ref %name r)] ()))
+               (Fn
+                 [(Ref (Fn [(Pair %key-type %value-type)] ()) q) (Ref %name r)]
+                 ()))
           (defn each [f map-ref]
             (ignore (reduce &(fn [acc p] (do (~f p) acc)) 0l map-ref)))
 
           (doc to-array "Copy all `(Pair key value)` entries into an `Array`.")
-          (sig to-array (Fn [(Ref %name q)] (Array (Pair %key-type %value-type))))
+          (sig to-array
+               (Fn [(Ref %name q)] (Array (Pair %key-type %value-type))))
           (defn to-array [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc p)) [] map-ref))
 
-          (doc from-array "Build a hash map from an `Array` of `(Pair key value)` entries.")
-          (sig from-array (Fn [(Ref (Array (Pair %key-type %value-type)) q)] %name))
+          (doc from-array
+            "Build a hash map from an `Array` of `(Pair key value)` entries.")
+          (sig from-array
+               (Fn [(Ref (Array (Pair %key-type %value-type)) q)] %name))
           (defn from-array [arr-ref]
-            (Array.reduce &(fn [acc p] (insert @(Pair.a p) @(Pair.b p) &acc)) (empty) arr-ref))
+            (Array.reduce
+              &(fn [acc p] (insert @(Pair.a p) @(Pair.b p) &acc))
+              (empty)
+              arr-ref))
 
           (doc keys "Collect all keys into an `Array`.")
           (sig keys (Fn [(Ref %name q)] (Array %key-type)))
@@ -2777,25 +2905,36 @@ Example:
           (defn values [map-ref]
             (reduce &(fn [acc p] (Array.push-back acc @(Pair.b &p))) [] map-ref))
 
-          (doc merge "Merge two maps. On key collision the second (right) map wins.")
+          (doc merge
+            "Merge two maps. On key collision the second (right) map wins.")
           (sig merge (Fn [(Ref %name a) (Ref %name b)] %name))
           (defn merge [a-ref b-ref]
-            (reduce &(fn [acc p] (insert @(Pair.a &p) @(Pair.b &p) &acc)) @a-ref b-ref))
+            (reduce
+              &(fn [acc p] (insert @(Pair.a &p) @(Pair.b &p) &acc))
+              @a-ref
+              b-ref))
 
           (doc merge-with
             "Merge two maps with a conflict resolver. For keys in both maps, call the resolver with both values.")
           (sig merge-with
-               (Fn [(Ref (Fn [%value-type %value-type] %value-type) q) (Ref %name a) (Ref %name b)] %name))
+               (Fn
+                 [(Ref (Fn [%value-type %value-type] %value-type) q)
+                  (Ref %name a)
+                  (Ref %name b)]
+                 %name))
           (defn merge-with [f a-ref b-ref]
             (reduce
               &(fn [acc p]
-                (let [k @(Pair.a &p) bv @(Pair.b &p)]
+                (let [k @(Pair.a &p)
+                      bv @(Pair.b &p)]
                   (match (get &k &acc)
                     (Maybe.Nothing) (insert k bv &acc)
                     (Maybe.Just av) (insert k (~f av bv) &acc))))
-              @a-ref b-ref))
+              @a-ref
+              b-ref))
 
-          (doc = "Structural equality: same size and same set of `(key, value)` entries.")
+          (doc =
+            "Structural equality: same size and same set of `(key, value)` entries.")
           (sig = (Fn [(Ref %name q) (Ref %name q)] Bool))
           (defn = [a-ref b-ref]
             (if (/= @(%map-count a-ref) @(%map-count b-ref))
@@ -2806,7 +2945,8 @@ Example:
                        (match (get (Pair.a &p) b-ref)
                          (Maybe.Nothing) false
                          (Maybe.Just bv) (= bv @(Pair.b &p)))))
-                true a-ref)))
+                true
+                a-ref)))
           (implements = %name-eq)
 
           (doc map-values
@@ -2814,25 +2954,40 @@ Example:
           (sig map-values
                (Fn [(Ref (Fn [%value-type] %value-type) q) (Ref %name r)] %name))
           (defn map-values [f map-ref]
-            (reduce &(fn [acc p] (insert @(Pair.a &p) (~f @(Pair.b &p)) &acc)) (empty) map-ref))
+            (reduce
+              &(fn [acc p] (insert @(Pair.a &p) (~f @(Pair.b &p)) &acc))
+              (empty)
+              map-ref))
 
-          (doc filter "Keep only entries whose `(Pair key value)` satisfies a predicate.")
+          (doc filter
+            "Keep only entries whose `(Pair key value)` satisfies a predicate.")
           (sig filter
-               (Fn [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r) (Ref %name s)] %name))
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 %name))
           (defn filter [pred map-ref]
             (reduce
-              &(fn [acc p] (if (~pred &p) (insert @(Pair.a &p) @(Pair.b &p) &acc) acc))
-              (empty) map-ref))
+              &(fn [acc p]
+                (if (~pred &p) (insert @(Pair.a &p) @(Pair.b &p) &acc) acc))
+              (empty)
+              map-ref))
 
           (doc any? "Return true if any entry satisfies the predicate.")
           (sig any?
-               (Fn [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r) (Ref %name s)] Bool))
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
           (defn any? [pred coll-ref]
             (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
 
           (doc all? "Return true if all entries satisfy the predicate.")
           (sig all?
-               (Fn [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r) (Ref %name s)] Bool))
+               (Fn
+                 [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
+                  (Ref %name s)]
+                 Bool))
           (defn all? [pred coll-ref]
             (reduce &(fn [acc x] (and acc (~pred &x))) true coll-ref))
 
@@ -2842,9 +2997,7 @@ Example:
             (fmt "(PersistentHashMap size=%ld)" (length map-ref)))
 
           (sig prn (Fn [(Ref %name q)] String))
-          (defn prn [map-ref] (str map-ref))))))
-
-)
+          (defn prn [map-ref] (str map-ref)))))))
 
 (defmodule Persistent
   (doc define-hash-set "Generate a persistent hash set backed by a hash map.
@@ -3012,12 +3165,15 @@ Example:
         (register-type %node-rc-type "void*")
         (deftype %node-type
           (Branch [(Array (Maybe %node-rc-type))])
-          (Leaf   [(Array %value-type)]))
+          (Leaf [(Array %value-type)]))
         (hidden %node-type)
         (Rc.define %node-rc-type %node-type)
 
-        (deftype %name [count Long shift Int root %node-rc-type
-                        tail (Array %value-type)])
+        (deftype %name
+          [count Long
+           shift Int
+           root %node-rc-type
+           tail (Array %value-type)])
 
         (defmodule %name
           (private branch-children)
@@ -3040,7 +3196,9 @@ Example:
           (private child-ref)
           (hidden child-ref)
           (sig child-ref
-               (Fn [(Ref (Array (Maybe %node-rc-type)) q) Int] (Ref %node-rc-type q)))
+               (Fn
+                 [(Ref (Array (Maybe %node-rc-type)) q) Int]
+                 (Ref %node-rc-type q)))
           (defn child-ref [children i]
             (match-ref (Array.unsafe-nth children i)
               (Maybe.Just rc) rc
@@ -3058,7 +3216,8 @@ Example:
             (if (< cnt 32l)
               0
               (Int.bit-shift-left
-                (Int.bit-shift-right (Long.to-int (Long.dec cnt)) 5) 5)))
+                (Int.bit-shift-right (Long.to-int (Long.dec cnt)) 5)
+                5)))
 
           (doc empty "Create an empty vector.")
           (sig empty (Fn [] %name))
@@ -3081,8 +3240,9 @@ Example:
               (while (> level 0)
                 (let [nv (%node-rc-value-ref &node)
                       child @(child-ref (branch-children nv)
-                                        (Int.bit-and
-                                          (Int.bit-shift-right index level) 31))]
+                                        (Int.bit-and (Int.bit-shift-right index
+                                                                          level)
+                                                     31))]
                   (do (set! node child) (set! level (- level 5)))))
               (%node-rc-get &node)))
 
@@ -3099,7 +3259,8 @@ Example:
                 (%node-rc-value-ref
                   (child-ref (branch-children node)
                              (Int.bit-and (Int.bit-shift-right index level) 31)))
-                (- level 5) index)))
+                (- level 5)
+                index)))
 
           (doc get "Lookup index, returning `Maybe` value.")
           (sig get (Fn [Int (Ref %name q)] (Maybe %value-type)))
@@ -3107,11 +3268,12 @@ Example:
             (if (or (< index 0) (>= index (Long.to-int @(%vec-count vec-ref))))
               (Maybe.Nothing)
               (if (>= index (tailoff @(%vec-count vec-ref)))
-                (Maybe.Just @(Array.unsafe-nth (%vec-tail vec-ref)
-                                               (Int.bit-and index 31)))
-                (Maybe.Just (value-in-node
-                              (%node-rc-value-ref (%vec-root vec-ref))
-                              @(%vec-shift vec-ref) index)))))
+                (Maybe.Just
+                  @(Array.unsafe-nth (%vec-tail vec-ref) (Int.bit-and index 31)))
+                (Maybe.Just
+                  (value-in-node (%node-rc-value-ref (%vec-root vec-ref))
+                                 @(%vec-shift vec-ref)
+                                 index)))))
 
           (private new-path)
           (hidden new-path)
@@ -3128,23 +3290,28 @@ Example:
                (Fn [Int (Ref %node-type q) %node-rc-type Long] %node-rc-type))
           (defn push-tail [level parent tailnode cnt]
             (let [subidx (Int.bit-and
-                           (Int.bit-shift-right (Long.to-int (Long.dec cnt)) level)
-                           31)]
+                    (Int.bit-shift-right (Long.to-int (Long.dec cnt)) level)
+                    31)]
               (if (= level 5)
-                (%node-rc-new (%node-branch
-                  (Array.push-back @(branch-children parent)
-                                   (Maybe.Just tailnode))))
+                (%node-rc-new
+                  (%node-branch
+                    (Array.push-back @(branch-children parent)
+                                     (Maybe.Just tailnode))))
                 (if (< subidx (nchildren parent))
                   (let-do [newchild (push-tail (- level 5)
-                                      (%node-rc-value-ref
-                                        (child-ref (branch-children parent) subidx))
-                                      tailnode cnt)
+                                               (%node-rc-value-ref
+                                                 (child-ref (branch-children parent)
+                                                            subidx))
+                                               tailnode
+                                               cnt)
                            cs @(branch-children parent)]
                     (Array.aset! &cs subidx (Maybe.Just newchild))
                     (%node-rc-new (%node-branch cs)))
-                  (%node-rc-new (%node-branch
-                    (Array.push-back @(branch-children parent)
-                                     (Maybe.Just (new-path (- level 5) tailnode)))))))))
+                  (%node-rc-new
+                    (%node-branch
+                      (Array.push-back @(branch-children parent)
+                                       (Maybe.Just (new-path (- level 5)
+                                                             tailnode)))))))))
 
           (doc push-back "Append value, returning a new vector.")
           (sig push-back (Fn [%value-type (Ref %name q)] %name))
@@ -3152,20 +3319,28 @@ Example:
             (let [cnt @(%vec-count vec-ref)
                   taillen (- (Long.to-int cnt) (tailoff cnt))]
               (if (< taillen 32)
-                (%vec-init (Long.inc cnt) @(%vec-shift vec-ref) @(%vec-root vec-ref)
+                (%vec-init (Long.inc cnt)
+                           @(%vec-shift vec-ref)
+                           @(%vec-root vec-ref)
                            (Array.push-back @(%vec-tail vec-ref) value))
                 (let [tailnode (%node-rc-new (%node-leaf @(%vec-tail vec-ref)))
                       shift @(%vec-shift vec-ref)]
-                  (if (> (Int.bit-shift-right (Long.to-int cnt) 5)
-                         (Int.bit-shift-left 1 shift))
-                    (%vec-init (Long.inc cnt) (+ shift 5)
-                               (%node-rc-new (%node-branch
-                                 [(Maybe.Just @(%vec-root vec-ref))
-                                  (Maybe.Just (new-path shift tailnode))]))
+                  (if (>
+                      (Int.bit-shift-right (Long.to-int cnt) 5)
+                      (Int.bit-shift-left 1 shift))
+                    (%vec-init (Long.inc cnt)
+                               (+ shift 5)
+                               (%node-rc-new
+                                 (%node-branch
+                                   [(Maybe.Just @(%vec-root vec-ref))
+                                    (Maybe.Just (new-path shift tailnode))]))
                                [value])
-                    (%vec-init (Long.inc cnt) shift
-                               (push-tail shift (%node-rc-value-ref (%vec-root vec-ref))
-                                          tailnode cnt)
+                    (%vec-init (Long.inc cnt)
+                               shift
+                               (push-tail shift
+                                          (%node-rc-value-ref (%vec-root vec-ref))
+                                          tailnode
+                                          cnt)
                                [value]))))))
 
           (doc push-back-owned
@@ -3194,7 +3369,8 @@ version; it is a transient-style fast path with the same result as
 
           (private do-assoc)
           (hidden do-assoc)
-          (sig do-assoc (Fn [Int (Ref %node-type q) Int %value-type] %node-rc-type))
+          (sig do-assoc
+               (Fn [Int (Ref %node-type q) Int %value-type] %node-rc-type))
           (defn do-assoc [level node index value]
             (if (= level 0)
               (let-do [vs @(leaf-values node)]
@@ -3202,9 +3378,11 @@ version; it is a transient-style fast path with the same result as
                 (%node-rc-new (%node-leaf vs)))
               (let-do [subidx (Int.bit-and (Int.bit-shift-right index level) 31)
                        newchild (do-assoc (- level 5)
-                                  (%node-rc-value-ref
-                                    (child-ref (branch-children node) subidx))
-                                  index value)
+                                          (%node-rc-value-ref
+                                            (child-ref (branch-children node)
+                                                       subidx))
+                                          index
+                                          value)
                        cs @(branch-children node)]
                 (Array.aset! &cs subidx (Maybe.Just newchild))
                 (%node-rc-new (%node-branch cs)))))
@@ -3218,37 +3396,48 @@ version; it is a transient-style fast path with the same result as
                 (if (>= index (tailoff cnt))
                   (let-do [t @(%vec-tail vec-ref)]
                     (Array.aset! &t (Int.bit-and index 31) value)
-                    (Maybe.Just (%vec-init cnt @(%vec-shift vec-ref)
-                                           @(%vec-root vec-ref) t)))
-                  (Maybe.Just (%vec-init cnt @(%vec-shift vec-ref)
-                                (do-assoc @(%vec-shift vec-ref)
-                                          (%node-rc-value-ref (%vec-root vec-ref))
-                                          index value)
-                                @(%vec-tail vec-ref)))))))
+                    (Maybe.Just
+                      (%vec-init cnt
+                                 @(%vec-shift vec-ref)
+                                 @(%vec-root vec-ref)
+                                 t)))
+                  (Maybe.Just
+                    (%vec-init cnt
+                               @(%vec-shift vec-ref)
+                               (do-assoc @(%vec-shift vec-ref)
+                                         (%node-rc-value-ref (%vec-root vec-ref))
+                                         index
+                                         value)
+                               @(%vec-tail vec-ref)))))))
 
           (private pop-tail)
           (hidden pop-tail)
           (sig pop-tail (Fn [Int (Ref %node-type q) Long] (Maybe %node-rc-type)))
           (defn pop-tail [level node cnt]
             (let [subidx (Int.bit-and
-                           (Int.bit-shift-right (Long.to-int (- cnt 2l)) level) 31)]
+                    (Int.bit-shift-right (Long.to-int (- cnt 2l)) level)
+                    31)]
               (if (> level 5)
                 (match (pop-tail (- level 5)
-                         (%node-rc-value-ref (child-ref (branch-children node) subidx))
-                         cnt)
+                                 (%node-rc-value-ref
+                                   (child-ref (branch-children node) subidx))
+                                 cnt)
                   (Maybe.Nothing)
                     (if (= subidx 0)
                       (Maybe.Nothing)
-                      (Maybe.Just (%node-rc-new (%node-branch
-                        (Array.prefix (branch-children node) subidx)))))
+                      (Maybe.Just
+                        (%node-rc-new
+                          (%node-branch
+                            (Array.prefix (branch-children node) subidx)))))
                   (Maybe.Just newchild)
                     (let-do [cs @(branch-children node)]
                       (Array.aset! &cs subidx (Maybe.Just newchild))
                       (Maybe.Just (%node-rc-new (%node-branch cs)))))
                 (if (= subidx 0)
                   (Maybe.Nothing)
-                  (Maybe.Just (%node-rc-new (%node-branch
-                    (Array.prefix (branch-children node) subidx))))))))
+                  (Maybe.Just
+                    (%node-rc-new
+                      (%node-branch (Array.prefix (branch-children node) subidx))))))))
 
           (doc pop-back
             "Pop last value, returning `(Maybe (Pair value next-vector))`.")
@@ -3258,35 +3447,50 @@ version; it is a transient-style fast path with the same result as
               (if (= cnt 0l)
                 (Maybe.Nothing)
                 (let [lastval (Maybe.unsafe-from
-                                (get (Long.to-int (Long.dec cnt)) vec-ref))]
+                        (get (Long.to-int (Long.dec cnt)) vec-ref))]
                   (if (= cnt 1l)
                     (Maybe.Just (Pair.init lastval (empty)))
                     (if (> (- (Long.to-int cnt) (tailoff cnt)) 1)
                       (let [t @(%vec-tail vec-ref)
                             nt (Array.prefix &t (Int.dec (Array.length &t)))]
-                        (Maybe.Just (Pair.init lastval
-                          (%vec-init (Long.dec cnt) @(%vec-shift vec-ref)
-                                     @(%vec-root vec-ref) nt))))
-                      (let [newtail-leaf (node-for vec-ref (- (Long.to-int cnt) 2))
+                        (Maybe.Just
+                          (Pair.init lastval
+                                     (%vec-init (Long.dec cnt)
+                                                @(%vec-shift vec-ref)
+                                                @(%vec-root vec-ref)
+                                                nt))))
+                      (let [newtail-leaf (node-for vec-ref
+                                                   (- (Long.to-int cnt) 2))
                             newtail @(leaf-values &newtail-leaf)
                             shift @(%vec-shift vec-ref)]
                         (match (pop-tail shift
-                                 (%node-rc-value-ref (%vec-root vec-ref)) cnt)
+                                         (%node-rc-value-ref (%vec-root vec-ref))
+                                         cnt)
                           (Maybe.Nothing)
-                            (Maybe.Just (Pair.init lastval
-                              (%vec-init (Long.dec cnt) shift
-                                         (%node-rc-new (%node-branch [])) newtail)))
+                            (Maybe.Just
+                              (Pair.init lastval
+                                         (%vec-init (Long.dec cnt)
+                                                    shift
+                                                    (%node-rc-new (%node-branch []))
+                                                    newtail)))
                           (Maybe.Just nr)
                             (if (and (> shift 5)
                                      (= 1 (nchildren (%node-rc-value-ref &nr))))
                               (let [collapsed @(child-ref
-                                                 (branch-children
-                                                   (%node-rc-value-ref &nr)) 0)]
-                                (Maybe.Just (Pair.init lastval
-                                  (%vec-init (Long.dec cnt) (- shift 5)
-                                             collapsed newtail))))
-                              (Maybe.Just (Pair.init lastval
-                                (%vec-init (Long.dec cnt) shift nr newtail))))))))))))
+                                      (branch-children (%node-rc-value-ref &nr))
+                                      0)]
+                                (Maybe.Just
+                                  (Pair.init lastval
+                                             (%vec-init (Long.dec cnt)
+                                                        (- shift 5)
+                                                        collapsed
+                                                        newtail))))
+                              (Maybe.Just
+                                (Pair.init lastval
+                                           (%vec-init (Long.dec cnt)
+                                                      shift
+                                                      nr
+                                                      newtail))))))))))))
 
           (doc ptr-eq
             "Pointer identity check for backing root plus count equality.")
@@ -3299,23 +3503,33 @@ version; it is a transient-style fast path with the same result as
           (private reduce-node)
           (hidden reduce-node)
           (sig reduce-node
-               (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %node-type r) Int] a))
-          (defn reduce-node [f acc node-ref level]
-            (if (= level 0)
-              (let-do [a acc
-                       vs (leaf-values node-ref)]
-                (for [j 0 (Array.length vs)]
-                  (set! a (~f a @(Array.unsafe-nth vs j))))
-                a)
-              (let-do [a acc
-                       cs (branch-children node-ref)]
-                (for [j 0 (Array.length cs)]
-                  (match-ref (Array.unsafe-nth cs j)
-                    (Maybe.Just rc)
-                      (set! a (reduce-node f a (%node-rc-value-ref rc)
-                                           (- level 5)))
-                    (Maybe.Nothing) ()))
-                a)))
+               (Fn
+                 [(Ref (Fn [a %value-type] a) q) a (Ref %node-rc-type r) Int]
+                 a))
+          (defn reduce-node [f acc node-rc-ref level]
+            (let-do [a acc
+                     stack (the (Array (Pair %node-rc-type Int)) [])]
+              (set! stack (Array.push-back stack (Pair.init @node-rc-ref level)))
+              (while (> (Array.length &stack) 0)
+                (let [frame (Array.pop-back! &stack)
+                      node-ref (%node-rc-value-ref (Pair.a &frame))
+                      lvl @(Pair.b &frame)]
+                  (if (= lvl 0)
+                    (let [vs (leaf-values node-ref)]
+                      (for [j 0 (Array.length vs)]
+                        (set! a (~f a @(Array.unsafe-nth vs j)))))
+                    (let [cs (branch-children node-ref)
+                          len (Array.length cs)]
+                      (for [j 0 len]
+                        (let [k (- (- len 1) j)]
+                          (match-ref (Array.unsafe-nth cs k)
+                            (Maybe.Just child-rc)
+                              (set! stack
+                                    (Array.push-back stack
+                                                     (Pair.init @child-rc
+                                                                (- lvl 5))))
+                            (Maybe.Nothing) ())))))))
+              a))
 
           (doc reduce "Reduce the vector index 0 to count-1 with accumulator.")
           (sig reduce (Fn [(Ref (Fn [a %value-type] a) q) a (Ref %name r)] a))
@@ -3325,29 +3539,41 @@ version; it is a transient-style fast path with the same result as
               (when (> cnt 0l)
                 (let-do [toff (tailoff cnt)]
                   (when (> toff 0)
-                    (set! acc (reduce-node f acc
-                                (%node-rc-value-ref (%vec-root vec-ref))
-                                @(%vec-shift vec-ref))))
+                    (set! acc
+                          (reduce-node f
+                                       acc
+                                       (%vec-root vec-ref)
+                                       @(%vec-shift vec-ref))))
                   (for [j 0 (Array.length (%vec-tail vec-ref))]
-                    (set! acc (~f acc @(Array.unsafe-nth
-                                        (%vec-tail vec-ref) j))))))
+                    (set! acc (~f acc @(Array.unsafe-nth (%vec-tail vec-ref) j))))))
               acc))
 
           (private each-node)
           (hidden each-node)
           (sig each-node
-               (Fn [(Ref (Fn [%value-type] ()) q) (Ref %node-type r) Int] ()))
-          (defn each-node [f node-ref level]
-            (if (= level 0)
-              (let [vs (leaf-values node-ref)]
-                (for [j 0 (Array.length vs)]
-                  (~f @(Array.unsafe-nth vs j))))
-              (let [cs (branch-children node-ref)]
-                (for [j 0 (Array.length cs)]
-                  (match-ref (Array.unsafe-nth cs j)
-                    (Maybe.Just rc)
-                      (each-node f (%node-rc-value-ref rc) (- level 5))
-                    (Maybe.Nothing) ())))))
+               (Fn [(Ref (Fn [%value-type] ()) q) (Ref %node-rc-type r) Int] ()))
+          (defn each-node [f node-rc-ref level]
+            (let [stack (the (Array (Pair %node-rc-type Int)) [])]
+              (let-do [s (Array.push-back stack (Pair.init @node-rc-ref level))]
+                (while (> (Array.length &s) 0)
+                  (let [frame (Array.pop-back! &s)
+                        node-ref (%node-rc-value-ref (Pair.a &frame))
+                        lvl @(Pair.b &frame)]
+                    (if (= lvl 0)
+                      (let [vs (leaf-values node-ref)]
+                        (for [j 0 (Array.length vs)]
+                          (~f @(Array.unsafe-nth vs j))))
+                      (let [cs (branch-children node-ref)
+                            len (Array.length cs)]
+                        (for [j 0 len]
+                          (let [k (- (- len 1) j)]
+                            (match-ref (Array.unsafe-nth cs k)
+                              (Maybe.Just child-rc)
+                                (set! s
+                                      (Array.push-back s
+                                                       (Pair.init @child-rc
+                                                                  (- lvl 5))))
+                              (Maybe.Nothing) ()))))))))))
 
           (doc each
             "Invoke a side-effecting function on each value in index order.")
@@ -3357,9 +3583,7 @@ version; it is a transient-style fast path with the same result as
               (when (> cnt 0l)
                 (let-do [toff (tailoff cnt)]
                   (when (> toff 0)
-                    (each-node f
-                               (%node-rc-value-ref (%vec-root vec-ref))
-                               @(%vec-shift vec-ref)))
+                    (each-node f (%vec-root vec-ref) @(%vec-shift vec-ref)))
                   (for [j 0 (Array.length (%vec-tail vec-ref))]
                     (~f @(Array.unsafe-nth (%vec-tail vec-ref) j)))))))
 
@@ -3422,5 +3646,4 @@ version; it is a transient-style fast path with the same result as
             (fmt "(PersistentVector size=%ld)" (length vec-ref)))
 
           (sig prn (Fn [(Ref %name q)] String))
-          (defn prn [vec-ref] (str vec-ref))))))
-)
+          (defn prn [vec-ref] (str vec-ref)))))))
