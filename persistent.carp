@@ -3154,7 +3154,7 @@ Example:
               map-ref))
 
           (doc any? "Return true if any entry satisfies the predicate.
-Short-circuits on first match.")
+Short-circuits predicate evaluation via `or`.")
           (sig any?
                (Fn
                  [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
@@ -3164,7 +3164,7 @@ Short-circuits on first match.")
             (reduce &(fn [acc x] (or acc (~pred &x))) false coll-ref))
 
           (doc all? "Return true if all entries satisfy the predicate.
-Short-circuits on first mismatch.")
+Short-circuits predicate evaluation via `and`.")
           (sig all?
                (Fn
                  [(Ref (Fn [(Ref (Pair %key-type %value-type) q)] Bool) r)
@@ -3298,14 +3298,14 @@ Example:
           (implements = %name-eq)
 
           (doc any? "Return true if any element satisfies the predicate.
-Short-circuits on first match.")
+Short-circuits predicate evaluation via `or`.")
           (sig any?
                (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
           (defn any? [pred coll-ref]
             (%map-any? &(fn [pair] (~pred (Pair.a pair))) (%set-map coll-ref)))
 
           (doc all? "Return true if all elements satisfy the predicate.
-Short-circuits on first mismatch.")
+Short-circuits predicate evaluation via `and`.")
           (sig all?
                (Fn [(Ref (Fn [(Ref %value-type q)] Bool) r) (Ref %name s)] Bool))
           (defn all? [pred coll-ref]
