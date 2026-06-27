@@ -1971,7 +1971,7 @@ If the key is absent the map is returned unchanged.")
                  [%key-type (Ref (Fn [%value-type] %value-type) q) (Ref %name r)]
                  %name))
           (defn update [key f map-ref]
-            (match (get &key map-ref)
+            (match (get @&key map-ref)
               (Maybe.Nothing) @map-ref
               (Maybe.Just v) (insert key (~f v) map-ref)))
 
