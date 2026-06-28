@@ -2680,7 +2680,7 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
 
 (defmodule Persistent
         (deftype (VectorNode a)
-          (Branch [(Array (Maybe (Rc (Persistent.VectorNode a))))])
+          (Branch [(Array (Rc (Persistent.VectorNode a)))])
           (Leaf   [(Array a)]))
         (hidden VectorNode)
 
@@ -2691,7 +2691,7 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
           (private branch-children)
           (hidden branch-children)
           (sig branch-children
-               (Fn [(Ref (Persistent.VectorNode a) q)] (Ref (Array (Maybe (Rc (Persistent.VectorNode a)))) q)))
+               (Fn [(Ref (Persistent.VectorNode a) q)] (Ref (Array (Rc (Persistent.VectorNode a))) q)))
           (defn branch-children [n]
             (match-ref n
               (Persistent.VectorNode.Branch cs) cs
@@ -2708,11 +2708,9 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
           (private child-ref)
           (hidden child-ref)
           (sig child-ref
-               (Fn [(Ref (Array (Maybe (Rc (Persistent.VectorNode a)))) q) Int] (Ref (Rc (Persistent.VectorNode a)) q)))
+               (Fn [(Ref (Array (Rc (Persistent.VectorNode a))) q) Int] (Ref (Rc (Persistent.VectorNode a)) q)))
           (defn child-ref [children i]
-            (match-ref (Array.unsafe-nth children i)
-              (Maybe.Just rc) rc
-              (Maybe.Nothing) (unreachable "hole in dense vector node")))
+            (Array.unsafe-nth children i))
 
           (private nchildren)
           (hidden nchildren)
@@ -2790,7 +2788,7 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                      lvl 0]
               (while (< lvl level)
                 (do
-                  (set! result (Rc.new (Persistent.VectorNode.Branch [(Maybe.Just result)])))
+                  (set! result (Rc.new (Persistent.VectorNode.Branch [result])))
                   (set! lvl (+ lvl 5))))
               result))
 
@@ -2802,12 +2800,12 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
             ; iterative descend/rebuild (see do-assoc). Descend recording a
             ; spine of (children-copy, subidx); `tailnode` is consumed once,
             ; after the loop, to keep its linear use valid.
-            (let-do [spine-cs (the (Array (Array (Maybe (Rc (Persistent.VectorNode a))))) [])
+            (let-do [spine-cs (the (Array (Array (Rc (Persistent.VectorNode a)))) [])
                      spine-ix (the (Array Int) [])
                      cur-children @(branch-children parent)
                      lvl level
                      mode 0
-                     attach-children (the (Array (Maybe (Rc (Persistent.VectorNode a)))) [])
+                     attach-children (the (Array (Rc (Persistent.VectorNode a))) [])
                      attach-level 0
                      done false]
               (while (not done)
@@ -2827,15 +2825,15 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                           (set! attach-level lvl) (set! done true))))))
               (let-do [built (if (= mode 0)
                                (Rc.new (Persistent.VectorNode.Branch
-                                 (Array.push-back attach-children (Maybe.Just tailnode))))
+                                 (Array.push-back attach-children tailnode)))
                                (Rc.new (Persistent.VectorNode.Branch
                                  (Array.push-back attach-children
-                                   (Maybe.Just (new-path (- attach-level 5) tailnode))))))]
+                                   (new-path (- attach-level 5) tailnode)))))]
                 (while (> (Array.length &spine-cs) 0)
                   (let-do [cs (Array.pop-back! &spine-cs)
                            sidx (Array.pop-back! &spine-ix)]
                     (set! built (Rc.new (Persistent.VectorNode.Branch
-                                  (do (Array.aset! &cs sidx (Maybe.Just built)) cs))))))
+                                  (do (Array.aset! &cs sidx built) cs))))))
                 built)))
 
           (doc push-back "Append value, returning a new vector.")
@@ -2852,8 +2850,8 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                          (Int.bit-shift-left 1 shift))
                     (Persistent.Vector.init (Long.inc cnt) (+ shift 5)
                                (Rc.new (Persistent.VectorNode.Branch
-                                 [(Maybe.Just @(Persistent.Vector.root vec-ref))
-                                  (Maybe.Just (new-path shift tailnode))]))
+                                 [@(Persistent.Vector.root vec-ref)
+                                  (new-path shift tailnode)]))
                                [value])
                     (Persistent.Vector.init (Long.inc cnt) shift
                                (push-tail shift (Rc.value-ref (Persistent.Vector.root vec-ref))
@@ -2901,7 +2899,7 @@ version; it is a transient-style fast path with the same result as
               (let-do [subidx0 (Int.bit-and (Int.bit-shift-right index level) 31)
                        cs0 @(branch-children node)
                        cursor @(child-ref &cs0 subidx0)
-                       spine-cs (the (Array (Array (Maybe (Rc (Persistent.VectorNode a))))) [cs0])
+                       spine-cs (the (Array (Array (Rc (Persistent.VectorNode a)))) [cs0])
                        spine-ix (the (Array Int) [subidx0])
                        lvl (- level 5)]
                 (while (> lvl 0)
@@ -2919,7 +2917,7 @@ version; it is a transient-style fast path with the same result as
                     (let-do [cs (Array.pop-back! &spine-cs)
                              sidx (Array.pop-back! &spine-ix)]
                       (set! cursor (Rc.new (Persistent.VectorNode.Branch
-                                     (do (Array.aset! &cs sidx (Maybe.Just cursor)) cs))))))
+                                     (do (Array.aset! &cs sidx cursor) cs))))))
                   cursor))))
 
           (doc assoc "Replace value at index, returning `(Maybe next-vector)`.")
@@ -2946,7 +2944,7 @@ version; it is a transient-style fast path with the same result as
             ; iterative descend/rebuild with collapse: descend to level 5
             ; recording a spine, drop the last leaf, then rebuild upward,
             ; propagating Nothing when a branch empties.
-            (let-do [spine (the (Array (Pair (Array (Maybe (Rc (Persistent.VectorNode a)))) Int)) [])
+            (let-do [spine (the (Array (Pair (Array (Rc (Persistent.VectorNode a))) Int)) [])
                      cur-children @(branch-children node)
                      lvl level]
               (while (> lvl 5)
@@ -2973,7 +2971,7 @@ version; it is a transient-style fast path with the same result as
                               (Array.prefix &cs sidx)))))
                         (Maybe.Just newchild)
                           (Maybe.Just (Rc.new (Persistent.VectorNode.Branch
-                            (Array.aset cs sidx (Maybe.Just newchild)))))))))
+                            (Array.aset cs sidx newchild))))))))
                 result)))
 
           (doc pop-back
