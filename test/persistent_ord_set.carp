@@ -5,8 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-ord-set IntSet Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -14,57 +12,57 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn set-branch-lifecycle []
-  (let [s0 (IntSet.empty)
-        s1 (IntSet.insert 10 &s0)
-        s2 (IntSet.insert 5 &s1)
-        s3 (IntSet.insert 15 &s1)
-        s4 (IntSet.remove 10 &s2)]
+  (let [s0 (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))
+        s1 (Persistent.OrdSet.insert 10 &s0)
+        s2 (Persistent.OrdSet.insert 5 &s1)
+        s3 (Persistent.OrdSet.insert 15 &s1)
+        s4 (Persistent.OrdSet.remove 10 &s2)]
     (do (ignore s3) (ignore s4))))
 
 (deftest test
   (assert-equal test
     true
-    (let [s (IntSet.empty)] (IntSet.empty? &s))
+    (let [s (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))] (Persistent.OrdSet.empty? &s))
     "empty ordered set reports empty")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 2 &s0)
-          s2 (IntSet.insert 1 &s1)
-          s3 (IntSet.insert 3 &s2)]
-      (and (= (IntSet.length &s3) 3l)
-           (IntSet.contains? 1 &s3)
-           (IntSet.contains? 2 &s3)
-           (IntSet.contains? 3 &s3)))
+    (let [s0 (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))
+          s1 (Persistent.OrdSet.insert 2 &s0)
+          s2 (Persistent.OrdSet.insert 1 &s1)
+          s3 (Persistent.OrdSet.insert 3 &s2)]
+      (and (= (Persistent.OrdSet.length &s3) 3l)
+           (Persistent.OrdSet.contains? 1 &s3)
+           (Persistent.OrdSet.contains? 2 &s3)
+           (Persistent.OrdSet.contains? 3 &s3)))
     "insert/contains works")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 7 &s0)
-          s2 (IntSet.insert 7 &s1)]
-      (= (IntSet.length &s2) 1l))
+    (let [s0 (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))
+          s1 (Persistent.OrdSet.insert 7 &s0)
+          s2 (Persistent.OrdSet.insert 7 &s1)]
+      (= (Persistent.OrdSet.length &s2) 1l))
     "duplicate insert is idempotent")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 7 &s0)
-          s2 (IntSet.insert 8 &s1)
-          s3 (IntSet.remove 7 &s2)]
-      (and (= (IntSet.length &s3) 1l)
-           (not (IntSet.contains? 7 &s3))
-           (IntSet.contains? 8 &s3)))
+    (let [s0 (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))
+          s1 (Persistent.OrdSet.insert 7 &s0)
+          s2 (Persistent.OrdSet.insert 8 &s1)
+          s3 (Persistent.OrdSet.remove 7 &s2)]
+      (and (= (Persistent.OrdSet.length &s3) 1l)
+           (not (Persistent.OrdSet.contains? 7 &s3))
+           (Persistent.OrdSet.contains? 8 &s3)))
     "remove drops only target value")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 3 &s0)
-          s2 (IntSet.insert 1 &s1)
-          s3 (IntSet.insert 2 &s2)
-          arr (IntSet.to-array &s3)]
+    (let [s0 (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))
+          s1 (Persistent.OrdSet.insert 3 &s0)
+          s2 (Persistent.OrdSet.insert 1 &s1)
+          s3 (Persistent.OrdSet.insert 2 &s2)
+          arr (Persistent.OrdSet.to-array &s3)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 1)
            (= @(Array.unsafe-nth &arr 2) 3)))
@@ -72,18 +70,18 @@
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 1 &(IntSet.insert 2 &(IntSet.empty)))
-          c (IntSet.insert 3 &(IntSet.insert 1 &(IntSet.empty)))]
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          b (Persistent.OrdSet.insert 1 &(Persistent.OrdSet.insert 2 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          c (Persistent.OrdSet.insert 3 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          u (IntSet.union &a &b)
-          arr (IntSet.to-array &u)]
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          b (Persistent.OrdSet.insert 3 &(Persistent.OrdSet.insert 2 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          u (Persistent.OrdSet.union &a &b)
+          arr (Persistent.OrdSet.to-array &u)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 1)
            (= @(Array.unsafe-nth &arr 1) 2)
@@ -92,103 +90,103 @@
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          u (IntSet.union &a &(IntSet.empty))]
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          u (Persistent.OrdSet.union &a &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))]
       (= &a &u))
     "union with empty set is identity")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          i (IntSet.intersection &a &b)
-          arr (IntSet.to-array &i)]
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          b (Persistent.OrdSet.insert 3 &(Persistent.OrdSet.insert 2 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          i (Persistent.OrdSet.intersection &a &b)
+          arr (Persistent.OrdSet.to-array &i)]
       (and (= (Array.length &arr) 1) (= @(Array.unsafe-nth &arr 0) 2)))
     "intersection keeps only shared elements")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 4 &(IntSet.insert 3 &(IntSet.empty)))
-          i (IntSet.intersection &a &b)]
-      (IntSet.empty? &i))
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          b (Persistent.OrdSet.insert 4 &(Persistent.OrdSet.insert 3 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          i (Persistent.OrdSet.intersection &a &b)]
+      (Persistent.OrdSet.empty? &i))
     "intersection of disjoint sets is empty")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          d (IntSet.difference &a &b)
-          arr (IntSet.to-array &d)]
+    (let [a (Persistent.OrdSet.insert 3
+                           &(Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))))
+          b (Persistent.OrdSet.insert 3 &(Persistent.OrdSet.insert 2 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          d (Persistent.OrdSet.difference &a &b)
+          arr (Persistent.OrdSet.to-array &d)]
       (and (= (Array.length &arr) 1) (= @(Array.unsafe-nth &arr 0) 1)))
     "difference removes elements in second set")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          d (IntSet.difference &a &(IntSet.empty))]
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          d (Persistent.OrdSet.difference &a &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))]
       (= &a &d))
     "difference with empty set is identity")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          d (IntSet.difference &a &a)]
-      (IntSet.empty? &d))
+    (let [a (Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))))
+          d (Persistent.OrdSet.difference &a &a)]
+      (Persistent.OrdSet.empty? &d))
     "difference with self is empty")
 
   (assert-equal test
     true
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.any? &(fn [x] (= x &3)) &s))
+    (let [s (Persistent.OrdSet.insert 3
+                           &(Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))))]
+      (Persistent.OrdSet.any? &(fn [x] (= x &3)) &s))
     "any? finds matching element")
 
   (assert-equal test
     false
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.any? &(fn [x] (= x &99)) &s))
+    (let [s (Persistent.OrdSet.insert 3
+                           &(Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))))]
+      (Persistent.OrdSet.any? &(fn [x] (= x &99)) &s))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.all? &(fn [x] (> @x 0)) &s))
+    (let [s (Persistent.OrdSet.insert 3
+                           &(Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))))]
+      (Persistent.OrdSet.all? &(fn [x] (> @x 0)) &s))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.all? &(fn [x] (> @x 2)) &s))
+    (let [s (Persistent.OrdSet.insert 3
+                           &(Persistent.OrdSet.insert 2 &(Persistent.OrdSet.insert 1 &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))))]
+      (Persistent.OrdSet.all? &(fn [x] (> @x 2)) &s))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntSet.any? &(fn [x] (= x &1)) &(IntSet.empty))
+    (Persistent.OrdSet.any? &(fn [x] (= x &1)) &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntSet.all? &(fn [x] (= x &1)) &(IntSet.empty))
+    (Persistent.OrdSet.all? &(fn [x] (= x &1)) &(the (Persistent.OrdSet Int) (Persistent.OrdSet.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     true
-    (let-do [s (IntSet.empty)]
-      (for [i 0 1000] (set! s (IntSet.insert i &s)))
-      (<= (IntSet.height &s) 15))
+    (let-do [s (the (Persistent.OrdSet Int) (Persistent.OrdSet.empty))]
+      (for [i 0 1000] (set! s (Persistent.OrdSet.insert i &s)))
+      (<= (Persistent.OrdSet.height &s) 15))
     "AVL set height is logarithmic after 1000 ascending inserts")
 
   (assert-equal test
     true
     (let [arr [3 1 2]
-          s (IntSet.from-array &arr)
-          back (IntSet.to-array &s)]
-      (and (= (IntSet.length &s) 3l)
+          s (Persistent.OrdSet.from-array &arr)
+          back (Persistent.OrdSet.to-array &s)]
+      (and (= (Persistent.OrdSet.length &s) 3l)
            (= @(Array.unsafe-nth &back 0) 1)
            (= @(Array.unsafe-nth &back 1) 2)
            (= @(Array.unsafe-nth &back 2) 3)))
@@ -196,7 +194,7 @@
 
   (assert-equal test
     true
-    (let [s (IntSet.from-array &(the (Array Int) []))] (IntSet.empty? &s))
+    (let [s (Persistent.OrdSet.from-array &(the (Array Int) []))] (Persistent.OrdSet.empty? &s))
     "from-array on empty array yields empty set")
 
   (assert-memory-balance test

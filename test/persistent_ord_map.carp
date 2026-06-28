@@ -5,12 +5,9 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-ord-map IntStrMap Int String)
-(Persistent.define-ord-map IntIntOMap Int Int)
-
 (defn build-ascending [n]
-  (let-do [m (IntIntOMap.empty)]
-    (for [i 0 n] (set! m (IntIntOMap.insert i i &m)))
+  (let-do [m (Persistent.OrdMap.empty)]
+    (for [i 0 n] (set! m (Persistent.OrdMap.insert i i &m)))
     m))
 
 (defn assert-memory-balance [state f expected-balance descr]
@@ -20,102 +17,102 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn map-branch-lifecycle []
-  (let [m0 (IntStrMap.empty)
-        m1 (IntStrMap.insert 2 @"b" &m0)
-        m2 (IntStrMap.insert 1 @"a" &m1)
-        m3 (IntStrMap.insert 3 @"c" &m1)
-        m4 (IntStrMap.remove 2 &m2)
-        m5 (IntStrMap.remove 1 &m4)]
+  (let [m0 (Persistent.OrdMap.empty)
+        m1 (Persistent.OrdMap.insert 2 @"b" &m0)
+        m2 (Persistent.OrdMap.insert 1 @"a" &m1)
+        m3 (Persistent.OrdMap.insert 3 @"c" &m1)
+        m4 (Persistent.OrdMap.remove 2 &m2)
+        m5 (Persistent.OrdMap.remove 1 &m4)]
     (do (ignore m3) (ignore m5))))
 
 (deftest test
   (assert-equal test
     true
-    (let [m (IntStrMap.empty)] (IntStrMap.empty? &m))
+    (let [m (the (Persistent.OrdMap Int String) (Persistent.OrdMap.empty))] (Persistent.OrdMap.empty? &m))
     "empty ordered map reports empty")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 2 @"two" &m0)
-          m2 (IntStrMap.insert 1 @"one" &m1)
-          m3 (IntStrMap.insert 3 @"three" &m2)]
-      (and (= (IntStrMap.length &m3) 3l)
-           (match (IntStrMap.get 1 &m3)
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 2 @"two" &m0)
+          m2 (Persistent.OrdMap.insert 1 @"one" &m1)
+          m3 (Persistent.OrdMap.insert 3 @"three" &m2)]
+      (and (= (Persistent.OrdMap.length &m3) 3l)
+           (match (Persistent.OrdMap.get 1 &m3)
              (Maybe.Just v) (= v @"one")
              (Maybe.Nothing) false)
-           (match (IntStrMap.get 2 &m3)
+           (match (Persistent.OrdMap.get 2 &m3)
              (Maybe.Just v) (= v @"two")
              (Maybe.Nothing) false)
-           (match (IntStrMap.get 3 &m3)
+           (match (Persistent.OrdMap.get 3 &m3)
              (Maybe.Just v) (= v @"three")
              (Maybe.Nothing) false)))
     "insert/get stores and retrieves keys")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 5 @"a" &m0)
-          m2 (IntStrMap.insert 5 @"b" &m1)]
-      (and (= (IntStrMap.length &m1) 1l)
-           (= (IntStrMap.length &m2) 1l)
-           (match (IntStrMap.get 5 &m2)
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 5 @"a" &m0)
+          m2 (Persistent.OrdMap.insert 5 @"b" &m1)]
+      (and (= (Persistent.OrdMap.length &m1) 1l)
+           (= (Persistent.OrdMap.length &m2) 1l)
+           (match (Persistent.OrdMap.get 5 &m2)
              (Maybe.Just v) (= v @"b")
              (Maybe.Nothing) false)))
     "replacing value does not change size")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 2 @"two" &m0)
-          m2 (IntStrMap.insert 1 @"one" &m1)
-          m3 (IntStrMap.insert 3 @"three" &m2)
-          m4 (IntStrMap.remove 2 &m3)]
-      (and (= (IntStrMap.length &m4) 2l)
-           (Maybe.nothing? &(IntStrMap.get 2 &m4))
-           (IntStrMap.contains? 1 &m4)
-           (IntStrMap.contains? 3 &m4)))
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 2 @"two" &m0)
+          m2 (Persistent.OrdMap.insert 1 @"one" &m1)
+          m3 (Persistent.OrdMap.insert 3 @"three" &m2)
+          m4 (Persistent.OrdMap.remove 2 &m3)]
+      (and (= (Persistent.OrdMap.length &m4) 2l)
+           (Maybe.nothing? &(Persistent.OrdMap.get 2 &m4))
+           (Persistent.OrdMap.contains? 1 &m4)
+           (Persistent.OrdMap.contains? 3 &m4)))
     "remove keeps remaining branches")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 2 @"two" &m0)
-          m2 (IntStrMap.insert 1 @"one" &m1)
-          m3 (IntStrMap.insert 3 @"three" &m2)]
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 2 @"two" &m0)
+          m2 (Persistent.OrdMap.insert 1 @"one" &m1)
+          m3 (Persistent.OrdMap.insert 3 @"three" &m2)]
       (and
-        (match (IntStrMap.min-key &m3)
+        (match (Persistent.OrdMap.min-key &m3)
           (Maybe.Just v) (= v 1)
           (Maybe.Nothing) false)
-        (match (IntStrMap.max-key &m3)
+        (match (Persistent.OrdMap.max-key &m3)
           (Maybe.Just v) (= v 3)
           (Maybe.Nothing) false)))
     "min-key and max-key follow ordering")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 1 @"one" &m0)]
-      (and (Maybe.nothing? &(IntStrMap.get 1 &m0)) (IntStrMap.contains? 1 &m1)))
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 1 @"one" &m0)]
+      (and (Maybe.nothing? &(Persistent.OrdMap.get 1 &m0)) (Persistent.OrdMap.contains? 1 &m1)))
     "persistence keeps prior map unchanged")
 
   (assert-equal test
     true
     (let [m (build-ascending 10000)
           k 9999]
-      (and (= (IntIntOMap.length &m) 10000l)
-           (match (IntIntOMap.get k &m)
+      (and (= (Persistent.OrdMap.length &m) 10000l)
+           (match (Persistent.OrdMap.get k &m)
              (Maybe.Just v) (= v 9999)
              (Maybe.Nothing) false)))
     "ascending-insert spine does not blow the C stack (non-tail insert-node)")
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 3 @"three" &m0)
-          m2 (IntStrMap.insert 1 @"one" &m1)
-          m3 (IntStrMap.insert 2 @"two" &m2)
-          arr (IntStrMap.to-array &m3)]
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 3 @"three" &m0)
+          m2 (Persistent.OrdMap.insert 1 @"one" &m1)
+          m3 (Persistent.OrdMap.insert 2 @"two" &m2)
+          arr (Persistent.OrdMap.to-array &m3)]
       (and (= (Array.length &arr) 3)
            (= @(Pair.a (Array.unsafe-nth &arr 0)) 1)
            (= @(Pair.a (Array.unsafe-nth &arr 2)) 3)))
@@ -123,11 +120,11 @@
 
   (assert-equal test
     true
-    (let [m0 (IntStrMap.empty)
-          m1 (IntStrMap.insert 5 @"x" &m0)
-          m2 (IntStrMap.insert 1 @"y" &m1)
-          ks (IntStrMap.keys &m2)
-          vs (IntStrMap.values &m2)]
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 5 @"x" &m0)
+          m2 (Persistent.OrdMap.insert 1 @"y" &m1)
+          ks (Persistent.OrdMap.keys &m2)
+          vs (Persistent.OrdMap.values &m2)]
       (and (= (Array.length &ks) 2)
            (= @(Array.unsafe-nth &ks 0) 1)
            (= @(Array.unsafe-nth &ks 1) 5)
@@ -136,233 +133,233 @@
 
   (assert-equal test
     true
-    (let [a (IntStrMap.insert 2
+    (let [a (Persistent.OrdMap.insert 2
                               @"b"
-                              &(IntStrMap.insert 1 @"a" &(IntStrMap.empty)))
-          b (IntStrMap.insert 1
+                              &(Persistent.OrdMap.insert 1 @"a" &(Persistent.OrdMap.empty)))
+          b (Persistent.OrdMap.insert 1
                               @"a"
-                              &(IntStrMap.insert 2 @"b" &(IntStrMap.empty)))
-          c (IntStrMap.insert 1
+                              &(Persistent.OrdMap.insert 2 @"b" &(Persistent.OrdMap.empty)))
+          c (Persistent.OrdMap.insert 1
                               @"a"
-                              &(IntStrMap.insert 2 @"c" &(IntStrMap.empty)))]
+                              &(Persistent.OrdMap.insert 2 @"c" &(Persistent.OrdMap.empty)))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
   (assert-equal test
     true
-    (let [m0 (IntIntOMap.empty)
-          m1 (IntIntOMap.insert 1 10 &m0)
-          m2 (IntIntOMap.insert 2 20 &m1)
-          m3 (IntIntOMap.insert 3 30 &m2)
-          mapped (IntIntOMap.map-values &(fn [v] (+ v 100)) &m3)]
-      (and (= (IntIntOMap.length &mapped) 3l)
-           (match (IntIntOMap.get 1 &mapped)
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 1 10 &m0)
+          m2 (Persistent.OrdMap.insert 2 20 &m1)
+          m3 (Persistent.OrdMap.insert 3 30 &m2)
+          mapped (Persistent.OrdMap.map-values &(fn [v] (+ v 100)) &m3)]
+      (and (= (Persistent.OrdMap.length &mapped) 3l)
+           (match (Persistent.OrdMap.get 1 &mapped)
              (Maybe.Just v) (= v 110)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 2 &mapped)
+           (match (Persistent.OrdMap.get 2 &mapped)
              (Maybe.Just v) (= v 120)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 3 &mapped)
+           (match (Persistent.OrdMap.get 3 &mapped)
              (Maybe.Just v) (= v 130)
              (Maybe.Nothing) false)))
     "map-values transforms values keeping keys")
 
   (assert-equal test
     true
-    (let [m (IntIntOMap.empty)
-          mapped (IntIntOMap.map-values &(fn [v] (+ v 1)) &m)]
-      (IntIntOMap.empty? &mapped))
+    (let [m (the (Persistent.OrdMap Int Int) (Persistent.OrdMap.empty))
+          mapped (Persistent.OrdMap.map-values &(fn [v] (+ v 1)) &m)]
+      (Persistent.OrdMap.empty? &mapped))
     "map-values over empty map yields empty")
 
   (assert-equal test
     true
-    (let [m0 (IntIntOMap.empty)
-          m1 (IntIntOMap.insert 1 10 &m0)
-          m2 (IntIntOMap.insert 2 5 &m1)
-          m3 (IntIntOMap.insert 3 30 &m2)
-          filtered (IntIntOMap.filter &(fn [p] (> @(Pair.b p) 8)) &m3)]
-      (and (= (IntIntOMap.length &filtered) 2l)
-           (IntIntOMap.contains? 1 &filtered)
-           (not (IntIntOMap.contains? 2 &filtered))
-           (IntIntOMap.contains? 3 &filtered)))
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 1 10 &m0)
+          m2 (Persistent.OrdMap.insert 2 5 &m1)
+          m3 (Persistent.OrdMap.insert 3 30 &m2)
+          filtered (Persistent.OrdMap.filter &(fn [p] (> @(Pair.b p) 8)) &m3)]
+      (and (= (Persistent.OrdMap.length &filtered) 2l)
+           (Persistent.OrdMap.contains? 1 &filtered)
+           (not (Persistent.OrdMap.contains? 2 &filtered))
+           (Persistent.OrdMap.contains? 3 &filtered)))
     "filter keeps entries matching predicate")
 
   (assert-equal test
     true
-    (let [m0 (IntIntOMap.empty)
-          m1 (IntIntOMap.insert 1 10 &m0)
-          filtered (IntIntOMap.filter &(fn [p] false) &m1)]
-      (IntIntOMap.empty? &filtered))
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 1 10 &m0)
+          filtered (Persistent.OrdMap.filter &(fn [p] false) &m1)]
+      (Persistent.OrdMap.empty? &filtered))
     "filter with always-false yields empty map")
 
   (assert-equal test
     true
-    (let [m0 (IntIntOMap.empty)
-          m1 (IntIntOMap.insert 1 10 &m0)
-          m2 (IntIntOMap.insert 2 20 &m1)
-          filtered (IntIntOMap.filter &(fn [p] true) &m2)]
+    (let [m0 (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.insert 1 10 &m0)
+          m2 (Persistent.OrdMap.insert 2 20 &m1)
+          filtered (Persistent.OrdMap.filter &(fn [p] true) &m2)]
       (= &filtered &m2))
     "filter with always-true preserves all entries")
 
   (assert-equal test
     true
-    (let [a (IntIntOMap.insert 1
+    (let [a (Persistent.OrdMap.insert 1
                                10
-                               &(IntIntOMap.insert 2 20 &(IntIntOMap.empty)))
-          b (IntIntOMap.insert 3
+                               &(Persistent.OrdMap.insert 2 20 &(Persistent.OrdMap.empty)))
+          b (Persistent.OrdMap.insert 3
                                30
-                               &(IntIntOMap.insert 4 40 &(IntIntOMap.empty)))
-          m (IntIntOMap.merge &a &b)]
-      (and (= (IntIntOMap.length &m) 4l)
-           (match (IntIntOMap.get 1 &m)
+                               &(Persistent.OrdMap.insert 4 40 &(Persistent.OrdMap.empty)))
+          m (Persistent.OrdMap.merge &a &b)]
+      (and (= (Persistent.OrdMap.length &m) 4l)
+           (match (Persistent.OrdMap.get 1 &m)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 3 &m)
+           (match (Persistent.OrdMap.get 3 &m)
              (Maybe.Just v) (= v 30)
              (Maybe.Nothing) false)))
     "merge of disjoint maps contains all entries")
 
   (assert-equal test
     true
-    (let [a (IntIntOMap.insert 1
+    (let [a (Persistent.OrdMap.insert 1
                                10
-                               &(IntIntOMap.insert 2 20 &(IntIntOMap.empty)))
-          b (IntIntOMap.insert 2
+                               &(Persistent.OrdMap.insert 2 20 &(Persistent.OrdMap.empty)))
+          b (Persistent.OrdMap.insert 2
                                99
-                               &(IntIntOMap.insert 3 30 &(IntIntOMap.empty)))
-          m (IntIntOMap.merge &a &b)]
-      (and (= (IntIntOMap.length &m) 3l)
-           (match (IntIntOMap.get 2 &m)
+                               &(Persistent.OrdMap.insert 3 30 &(Persistent.OrdMap.empty)))
+          m (Persistent.OrdMap.merge &a &b)]
+      (and (= (Persistent.OrdMap.length &m) 3l)
+           (match (Persistent.OrdMap.get 2 &m)
              (Maybe.Just v) (= v 99)
              (Maybe.Nothing) false)))
     "merge right wins on key collision")
 
   (assert-equal test
     true
-    (let [a (IntIntOMap.insert 1
+    (let [a (Persistent.OrdMap.insert 1
                                10
-                               &(IntIntOMap.insert 2 20 &(IntIntOMap.empty)))
-          e (IntIntOMap.empty)
-          m1 (IntIntOMap.merge &a &e)
-          m2 (IntIntOMap.merge &e &a)]
+                               &(Persistent.OrdMap.insert 2 20 &(Persistent.OrdMap.empty)))
+          e (Persistent.OrdMap.empty)
+          m1 (Persistent.OrdMap.merge &a &e)
+          m2 (Persistent.OrdMap.merge &e &a)]
       (and (= &m1 &a) (= &m2 &a)))
     "merge with empty is identity")
 
   (assert-equal test
     true
-    (let [a (IntIntOMap.insert 1
+    (let [a (Persistent.OrdMap.insert 1
                                10
-                               &(IntIntOMap.insert 2 20 &(IntIntOMap.empty)))
-          b (IntIntOMap.insert 2 3 &(IntIntOMap.insert 3 30 &(IntIntOMap.empty)))
-          m (IntIntOMap.merge-with &(fn [x y] (+ x y)) &a &b)]
-      (and (= (IntIntOMap.length &m) 3l)
-           (match (IntIntOMap.get 1 &m)
+                               &(Persistent.OrdMap.insert 2 20 &(Persistent.OrdMap.empty)))
+          b (Persistent.OrdMap.insert 2 3 &(Persistent.OrdMap.insert 3 30 &(Persistent.OrdMap.empty)))
+          m (Persistent.OrdMap.merge-with &(fn [x y] (+ x y)) &a &b)]
+      (and (= (Persistent.OrdMap.length &m) 3l)
+           (match (Persistent.OrdMap.get 1 &m)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 2 &m)
+           (match (Persistent.OrdMap.get 2 &m)
              (Maybe.Just v) (= v 23)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 3 &m)
+           (match (Persistent.OrdMap.get 3 &m)
              (Maybe.Just v) (= v 30)
              (Maybe.Nothing) false)))
     "merge-with addition combiner on overlapping keys")
 
   (assert-equal test
     true
-    (let [a (IntIntOMap.insert 1 10 &(IntIntOMap.empty))
-          b (IntIntOMap.insert 2 20 &(IntIntOMap.empty))
-          m (IntIntOMap.merge-with &(fn [x y] (+ x y)) &a &b)]
-      (and (= (IntIntOMap.length &m) 2l)
-           (match (IntIntOMap.get 1 &m)
+    (let [a (Persistent.OrdMap.insert 1 10 &(Persistent.OrdMap.empty))
+          b (Persistent.OrdMap.insert 2 20 &(Persistent.OrdMap.empty))
+          m (Persistent.OrdMap.merge-with &(fn [x y] (+ x y)) &a &b)]
+      (and (= (Persistent.OrdMap.length &m) 2l)
+           (match (Persistent.OrdMap.get 1 &m)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntOMap.get 2 &m)
+           (match (Persistent.OrdMap.get 2 &m)
              (Maybe.Just v) (= v 20)
              (Maybe.Nothing) false)))
     "merge-with on disjoint maps just takes values")
 
   (assert-equal test
     true
-    (let [m (IntIntOMap.insert 2 5 &(IntIntOMap.insert 1 10 &(IntIntOMap.empty)))]
-      (IntIntOMap.any? &(fn [p] (> @(Pair.b p) 8)) &m))
+    (let [m (Persistent.OrdMap.insert 2 5 &(Persistent.OrdMap.insert 1 10 &(Persistent.OrdMap.empty)))]
+      (Persistent.OrdMap.any? &(fn [p] (> @(Pair.b p) 8)) &m))
     "any? finds matching entry")
 
   (assert-equal test
     false
-    (let [m (IntIntOMap.insert 2 5 &(IntIntOMap.insert 1 10 &(IntIntOMap.empty)))]
-      (IntIntOMap.any? &(fn [p] (> @(Pair.b p) 99)) &m))
+    (let [m (Persistent.OrdMap.insert 2 5 &(Persistent.OrdMap.insert 1 10 &(Persistent.OrdMap.empty)))]
+      (Persistent.OrdMap.any? &(fn [p] (> @(Pair.b p) 99)) &m))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [m (IntIntOMap.insert 2 5 &(IntIntOMap.insert 1 10 &(IntIntOMap.empty)))]
-      (IntIntOMap.all? &(fn [p] (> @(Pair.b p) 0)) &m))
+    (let [m (Persistent.OrdMap.insert 2 5 &(Persistent.OrdMap.insert 1 10 &(Persistent.OrdMap.empty)))]
+      (Persistent.OrdMap.all? &(fn [p] (> @(Pair.b p) 0)) &m))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [m (IntIntOMap.insert 2 5 &(IntIntOMap.insert 1 10 &(IntIntOMap.empty)))]
-      (IntIntOMap.all? &(fn [p] (> @(Pair.b p) 8)) &m))
+    (let [m (Persistent.OrdMap.insert 2 5 &(Persistent.OrdMap.insert 1 10 &(Persistent.OrdMap.empty)))]
+      (Persistent.OrdMap.all? &(fn [p] (> @(Pair.b p) 8)) &m))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntIntOMap.any? &(fn [p] true) &(IntIntOMap.empty))
+    (Persistent.OrdMap.any? &(fn [p] true) &(the (Persistent.OrdMap Int Int) (Persistent.OrdMap.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntIntOMap.all? &(fn [p] false) &(IntIntOMap.empty))
+    (Persistent.OrdMap.all? &(fn [p] false) &(the (Persistent.OrdMap Int Int) (Persistent.OrdMap.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     0
-    (IntIntOMap.height &(IntIntOMap.empty))
+    (Persistent.OrdMap.height &(the (Persistent.OrdMap Int Int) (Persistent.OrdMap.empty)))
     "empty map has height 0")
 
   (assert-equal test
     1
-    (IntIntOMap.height &(IntIntOMap.singleton 1 1))
+    (Persistent.OrdMap.height &(Persistent.OrdMap.singleton 1 1))
     "singleton map has height 1")
 
   (assert-equal test
     true
-    (let [m (build-ascending 1000)] (<= (IntIntOMap.height &m) 15))
+    (let [m (build-ascending 1000)] (<= (Persistent.OrdMap.height &m) 15))
     "AVL height is logarithmic after 1000 ascending inserts")
 
   (assert-equal test
     true
-    (let-do [m (IntIntOMap.empty)]
-      (for [i 0 1000] (set! m (IntIntOMap.insert (- 999 i) i &m)))
-      (<= (IntIntOMap.height &m) 15))
+    (let-do [m (Persistent.OrdMap.empty)]
+      (for [i 0 1000] (set! m (Persistent.OrdMap.insert (- 999 i) i &m)))
+      (<= (Persistent.OrdMap.height &m) 15))
     "AVL height is logarithmic after 1000 descending inserts")
 
   (assert-equal test
     true
-    (let [m (build-ascending 10000)] (<= (IntIntOMap.height &m) 21))
+    (let [m (build-ascending 10000)] (<= (Persistent.OrdMap.height &m) 21))
     "AVL height bounded for 10000 ascending inserts")
 
   (assert-equal test
     true
     (let-do [m (build-ascending 100)
              r m]
-      (for [i 0 50] (set! r (IntIntOMap.remove (* i 2) &r)))
-      (and (<= (IntIntOMap.height &r) 8) (= (IntIntOMap.length &r) 50l)))
+      (for [i 0 50] (set! r (Persistent.OrdMap.remove (* i 2) &r)))
+      (and (<= (Persistent.OrdMap.height &r) 8) (= (Persistent.OrdMap.length &r) 50l)))
     "AVL stays balanced after removing half the entries")
 
   (assert-equal test
     true
     (let [arr [(Pair.init 1 @"one") (Pair.init 2 @"two")]
-          m (IntStrMap.from-array &arr)]
-      (and (= (IntStrMap.length &m) 2l)
-           (= &(Maybe.Just @"one") &(IntStrMap.get 1 &m))
-           (= &(Maybe.Just @"two") &(IntStrMap.get 2 &m))))
+          m (Persistent.OrdMap.from-array &arr)]
+      (and (= (Persistent.OrdMap.length &m) 2l)
+           (= &(Maybe.Just @"one") &(Persistent.OrdMap.get 1 &m))
+           (= &(Maybe.Just @"two") &(Persistent.OrdMap.get 2 &m))))
     "from-array builds map from pairs")
 
   (assert-equal test
     true
-    (let [m (IntStrMap.from-array &(the (Array (Pair Int String)) []))]
-      (IntStrMap.empty? &m))
+    (let [m (Persistent.OrdMap.from-array &(the (Array (Pair Int String)) []))]
+      (Persistent.OrdMap.empty? &m))
     "from-array on empty array yields empty map")
 
   (assert-memory-balance test

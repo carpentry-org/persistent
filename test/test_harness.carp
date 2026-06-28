@@ -1,6 +1,6 @@
 (doc TestHarness "Build/test helpers for persistent structure tests.")
 (defmodule TestHarness
-  (doc getenv-bool "Read a bool env var with fallback. Accepts 1/0 and true/false/yes/no.")
+  
   (defn getenv-bool [name default]
     (match (IO.getenv name)
       (Maybe.Nothing) default

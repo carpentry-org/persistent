@@ -1,0 +1,784 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/persistent">
+                    <img src="">
+                </a>
+                <div class="title">
+                    persistent
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <details>
+                                <summary>
+                                    <a href="Persistent.html">
+                                        Persistent
+                                    </a>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="Persistent.Deque.html">
+                                            Deque
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashMap.html">
+                                            HashMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashSet.html">
+                                            HashSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Heap.html">
+                                            Heap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.List.html">
+                                            List
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdMap.html">
+                                            OrdMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdSet.html">
+                                            OrdSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Queue.html">
+                                            Queue
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Trie.html">
+                                            Trie
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Vector.html">
+                                            Vector
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li>
+                            <a href="Design.html">
+                                Design
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Testing.html">
+                                Testing
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    Persistent.Queue
+                </h1>
+                <div class="module-description">
+                    
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#=">
+                        <h3 id="=">
+                            =
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b), (Ref (Persistent.Queue a) b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (= a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Structural equality: same length and pairwise equal FIFO sequence.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#all?">
+                        <h3 id="all?">
+                            all?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref a b)] Bool) StaticLifetime), (Ref (Persistent.Queue a) c)] Bool)
+                    </p>
+                    <pre class="args">
+                        (all? pred coll-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return true if all elements satisfy the predicate.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#any?">
+                        <h3 id="any?">
+                            any?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref a b)] Bool) StaticLifetime), (Ref (Persistent.Queue a) c)] Bool)
+                    </p>
+                    <pre class="args">
+                        (any? pred coll-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return true if any element satisfies the predicate.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#copy">
+                        <h3 id="copy">
+                            copy
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>copies a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#count">
+                        <h3 id="count">
+                            count
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Ref Long b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>count</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#delete">
+                        <h3 id="delete">
+                            delete
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>deletes a <code>Queue</code>. Should usually not be called manually.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#dequeue">
+                        <h3 id="dequeue">
+                            dequeue
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Maybe (Pair a (Persistent.Queue a))))
+                    </p>
+                    <pre class="args">
+                        (dequeue q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Dequeue front value, returning <code>(Maybe (Pair value next-queue))</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#each">
+                        <h3 id="each">
+                            each
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [a] ()) b), (Ref (Persistent.Queue a) c)] ())
+                    </p>
+                    <pre class="args">
+                        (each f q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Invoke a side-effecting function on each element in FIFO order.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#empty">
+                        <h3 id="empty">
+                            empty
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (empty)
+                    </pre>
+                    <p class="doc">
+                        <p>Create an empty queue.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#empty?">
+                        <h3 id="empty?">
+                            empty?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (empty? q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Returns <code>true</code> when queue has no elements.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#enqueue">
+                        <h3 id="enqueue">
+                            enqueue
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [a, (Ref (Persistent.Queue a) b)] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (enqueue value q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Enqueue at the rear, returning a new queue.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#filter">
+                        <h3 id="filter">
+                            filter
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref a b)] Bool) StaticLifetime), (Ref (Persistent.Queue a) c)] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (filter pred q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Keep only elements satisfying a predicate, preserving FIFO order.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#from-array">
+                        <h3 id="from-array">
+                            from-array
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Array a) b)] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (from-array arr-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Build a queue from an <code>Array</code>, preserving FIFO order.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#front">
+                        <h3 id="front">
+                            front
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Ref (Persistent.List a) b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>front</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#init">
+                        <h3 id="init">
+                            init
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.List a), (Persistent.List a), Long] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>creates a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#length">
+                        <h3 id="length">
+                            length
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] Long)
+                    </p>
+                    <pre class="args">
+                        (length q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return the logical queue length in O(1).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#map">
+                        <h3 id="map">
+                            map
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [a] a) StaticLifetime), (Ref (Persistent.Queue a) b)] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (map f q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Apply a function to each element, returning a new queue in FIFO order.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#peek">
+                        <h3 id="peek">
+                            peek
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Maybe a))
+                    </p>
+                    <pre class="args">
+                        (peek q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Read the front value, if any.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#prn">
+                        <h3 id="prn">
+                            prn
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] String)
+                    </p>
+                    <pre class="args">
+                        (prn q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>converts a <code>Queue</code> to a string.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#ptr-eq">
+                        <h3 id="ptr-eq">
+                            ptr-eq
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b), (Ref (Persistent.Queue a) c)] Bool)
+                    </p>
+                    <pre class="args">
+                        (ptr-eq a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Pointer identity check for queue front and rear list roots plus count equality.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#rear">
+                        <h3 id="rear">
+                            rear
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Ref (Persistent.List a) b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>rear</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#reduce">
+                        <h3 id="reduce">
+                            reduce
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [a, b] a) c), a, (Ref (Persistent.Queue b) d)] a)
+                    </p>
+                    <pre class="args">
+                        (reduce f init q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Reduce the queue in FIFO order with accumulator.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-count">
+                        <h3 id="set-count">
+                            set-count
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), Long] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>count</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-count!">
+                        <h3 id="set-count!">
+                            set-count!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b), Long] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>count</code> property of a <code>Queue</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-front">
+                        <h3 id="set-front">
+                            set-front
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), (Persistent.List a)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>front</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-front!">
+                        <h3 id="set-front!">
+                            set-front!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b), (Persistent.List a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>front</code> property of a <code>Queue</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-rear">
+                        <h3 id="set-rear">
+                            set-rear
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), (Persistent.List a)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>rear</code> property of a <code>Queue</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-rear!">
+                        <h3 id="set-rear!">
+                            set-rear!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b), (Persistent.List a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>rear</code> property of a <code>Queue</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#singleton">
+                        <h3 id="singleton">
+                            singleton
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [a] (Persistent.Queue a))
+                    </p>
+                    <pre class="args">
+                        (singleton value)
+                    </pre>
+                    <p class="doc">
+                        <p>Create a singleton queue.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#str">
+                        <h3 id="str">
+                            str
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] String)
+                    </p>
+                    <pre class="args">
+                        (str q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Diagnostic formatting for a queue.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#to-array">
+                        <h3 id="to-array">
+                            to-array
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.Queue a) b)] (Array a))
+                    </p>
+                    <pre class="args">
+                        (to-array q-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Copy all values into an <code>Array</code> in FIFO order.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-count">
+                        <h3 id="update-count">
+                            update-count
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), (Ref (Fn [Long] Long b) c)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>count</code> property of a <code>(Persistent.Queue a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-front">
+                        <h3 id="update-front">
+                            update-front
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), (Ref (Fn [(Persistent.List a)] (Persistent.List a) b) c)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>front</code> property of a <code>(Persistent.Queue a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-rear">
+                        <h3 id="update-rear">
+                            update-rear
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.Queue a), (Ref (Fn [(Persistent.List a)] (Persistent.List a) b) c)] (Persistent.Queue a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>rear</code> property of a <code>(Persistent.Queue a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

@@ -18,9 +18,65 @@
                 <div class="index">
                     <ul>
                         <li>
-                            <a href="Persistent.html">
-                                Persistent
-                            </a>
+                            <details>
+                                <summary>
+                                    <a href="Persistent.html">
+                                        Persistent
+                                    </a>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="Persistent.Deque.html">
+                                            Deque
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashMap.html">
+                                            HashMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashSet.html">
+                                            HashSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Heap.html">
+                                            Heap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.List.html">
+                                            List
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdMap.html">
+                                            OrdMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdSet.html">
+                                            OrdSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Queue.html">
+                                            Queue
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Trie.html">
+                                            Trie
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Vector.html">
+                                            Vector
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         <li>
                             <a href="Design.html">
@@ -40,45 +96,48 @@
                     Testing
                 </h1>
                 <div class="module-description">
-                    <p>Testing overview for <code>persistent</code>.</p>
+                    <p>How <code>persistent</code> is tested.</p>
 <h2>Approach</h2>
-<p><code>persistent</code> emphasizes deterministic semantic coverage plus sanitizer lanes.
-Fuzzing responsibility is concentrated at the <code>rc</code> layer.</p>
-<h2>Suites</h2>
+<p>Tests are deterministic and semantic. Each collection has its own suite under
+<code>test/</code>. Heavy randomized fuzzing lives in <code>rc</code>, because that's where the
+shared-ownership lifetime risk concentrates. Verifying <code>rc</code> holds plus
+checking that each collection wires it up correctly is the contract here.</p>
+<h2>What's covered for every collection</h2>
 <ul>
-<li><code>test/persistent_list.carp</code></li>
-<li><code>test/persistent_queue.carp</code></li>
-<li><code>test/persistent_trie.carp</code></li>
-<li><code>test/persistent_deque.carp</code></li>
-<li><code>test/persistent_ord_map.carp</code></li>
-<li><code>test/persistent_ord_set.carp</code></li>
-<li><code>test/persistent_heap.carp</code></li>
-<li><code>test/persistent_hash_map.carp</code></li>
-<li><code>test/persistent_hash_set.carp</code></li>
-<li><code>test/persistent_vector.carp</code></li>
+<li>constructors and emptiness</li>
+<li>the structure-specific updates (insert/update/remove/push/pop/get)</li>
+<li>persistence: older versions remain unchanged after updates</li>
+<li><code>ptr-eq</code> behavior on branching</li>
+<li>iteration (<code>reduce</code>, <code>each</code>, <code>to-array</code>)</li>
+<li>structural <code>=</code> where defined</li>
+<li>per-suite memory balance (no leaks, no double-frees)</li>
+<li>deep-input regressions (e.g. list <code>drop-n</code> at 200k, others at 100k)</li>
 </ul>
-<h2>Validation Matrix</h2>
-<p>Run from repository root:</p>
+<p>A few structure-specific checks: trie prefix lookup, ordered map min/max and
+successor-based delete, heap sorted-pop progression, hash map <code>Int.MIN</code>
+hash-path regression, vector <code>assoc</code> and <code>pop-back</code> branch behavior.</p>
+<h2>Running</h2>
+<p>Single suite:</p>
+<pre><code>carp -x test/persistent_list.carp --log-memory --no-profile
+</code></pre>
+<p>Full validation matrix (sanitizers + multiple optimization levels):</p>
+<pre><code>./scripts/validate.sh
+</code></pre>
+<p>Lanes: <code>O1</code> with ASan/UBSan; <code>O2</code> release-like; <code>O3</code> optimizer stress
+(<code>PERSISTENT_VALIDATE_RUN_O3=0</code> to skip).</p>
+<h2>Knobs</h2>
 <ul>
-<li><code>./scripts/validate.sh</code></li>
+<li><code>PERSISTENT_OPT_LEVEL</code>: <code>O0|O1|O2|O3</code> (default <code>O1</code>)</li>
+<li><code>PERSISTENT_SANITIZE</code>: <code>1|true|yes</code> enables sanitizers</li>
+<li><code>PERSISTENT_VALIDATE_RUN_O3</code>: <code>0</code> to skip the O3 lane</li>
+<li><code>CARP_BIN</code>: override the <code>carp</code> binary the script uses</li>
 </ul>
-<p>Lanes:</p>
-<ul>
-<li>O1 + ASan/UBSan</li>
-<li>O2 release-like</li>
-<li>O3 optimizer stress (optional via <code>PERSISTENT_VALIDATE_RUN_O3=0</code>)</li>
-</ul>
-<h2>Coverage Highlights</h2>
-<ul>
-<li>persistence semantics across all structure families</li>
-<li>iteration and structural equality behavior</li>
-<li>lifecycle memory-balance checks</li>
-<li>deep-input stack-safety regressions</li>
-<li>known hash-path regression (<code>Int.MIN</code>) for hash map</li>
-</ul>
-<h2>Known Compiler Noise</h2>
-<p>Current Carp may emit warnings for internal generated <code>Rc</code> node handles
-(<code>No 'prn'</code> / <code>Too many 'delete'</code>) while tests still pass.</p>
+<h2>Known compiler noise</h2>
+<p>The current Carp release sometimes emits warnings about internal generated
+<code>Rc</code> node handle types (<code>No 'prn'</code>, <code>Too many 'delete'</code>). They're an artifact
+of how <code>Rc.define</code> interacts with the surrounding deftype system, not signals
+of a real problem. Treat them as expected noise as long as the suites and the
+sanitized lane are green.</p>
 
                 </div>
             </div>

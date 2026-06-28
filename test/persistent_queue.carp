@@ -5,8 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-queue IntQueue Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -14,19 +12,19 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn build-long-queue [n]
-  (let-do [q (IntQueue.empty)] (for [i 0 n] (set! q (IntQueue.enqueue i &q))) q))
+  (let-do [q (the (Persistent.Queue Int) (Persistent.Queue.empty))] (for [i 0 n] (set! q (Persistent.Queue.enqueue i &q))) q))
 
 (defn queue-branch-lifecycle []
-  (let [q0 (IntQueue.empty)
-        q1 (IntQueue.enqueue 1 &q0)
-        q2 (IntQueue.enqueue 2 &q1)
-        q3 (IntQueue.enqueue 3 &q1)]
+  (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+        q1 (Persistent.Queue.enqueue 1 &q0)
+        q2 (Persistent.Queue.enqueue 2 &q1)
+        q3 (Persistent.Queue.enqueue 3 &q1)]
     (do (ignore q2) (ignore q3))))
 
 (defn queue-drain-values [q-ref] (let [out0 []] (queue-drain-iter q-ref &out0)))
 
 (defn queue-drain-iter [q-ref out-ref]
-  (match (IntQueue.dequeue q-ref)
+  (match (Persistent.Queue.dequeue q-ref)
     (Maybe.Nothing) @out-ref
     (Maybe.Just p)
       (let [value @(Pair.a &p)
@@ -36,39 +34,39 @@
 (deftest test
   (assert-equal test
     true
-    (let [q (IntQueue.empty)] (IntQueue.empty? &q))
+    (let [q (the (Persistent.Queue Int) (Persistent.Queue.empty))] (Persistent.Queue.empty? &q))
     "empty queue reports empty")
 
   (assert-equal test
     0l
-    (let [q (IntQueue.empty)] (IntQueue.length &q))
+    (let [q (the (Persistent.Queue Int) (Persistent.Queue.empty))] (Persistent.Queue.length &q))
     "empty queue has length 0")
 
   (assert-equal test
     true
-    (let [q (IntQueue.empty)] (Maybe.nothing? &(IntQueue.peek &q)))
+    (let [q (the (Persistent.Queue Int) (Persistent.Queue.empty))] (Maybe.nothing? &(Persistent.Queue.peek &q)))
     "peek on empty queue returns Nothing")
 
   (assert-equal test
     true
-    (let [q (IntQueue.empty)] (Maybe.nothing? &(IntQueue.dequeue &q)))
+    (let [q (the (Persistent.Queue Int) (Persistent.Queue.empty))] (Maybe.nothing? &(Persistent.Queue.dequeue &q)))
     "dequeue on empty queue returns Nothing")
 
   (assert-equal test
     1
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)]
-      (match (IntQueue.peek &q3) (Maybe.Just v) v (Maybe.Nothing) -1))
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)]
+      (match (Persistent.Queue.peek &q3) (Maybe.Just v) v (Maybe.Nothing) -1))
     "peek returns FIFO front")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)
           vals (queue-drain-values &q3)]
       (and (= (Array.length &vals) 3)
            (= @(Array.unsafe-nth &vals 0) 1)
@@ -78,57 +76,57 @@
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)]
-      (match (IntQueue.dequeue &q3)
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)]
+      (match (Persistent.Queue.dequeue &q3)
         (Maybe.Nothing) false
         (Maybe.Just p)
           (let [q4 @(Pair.b &p)]
-            (match (IntQueue.peek &q4)
+            (match (Persistent.Queue.peek &q4)
               (Maybe.Just v) (= v 2)
               (Maybe.Nothing) false))))
     "dequeue rebalances rear when front is exhausted")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q1)]
-      (and (not (IntQueue.ptr-eq &q2 &q3))
-           (= 2l (IntQueue.length &q2))
-           (= 2l (IntQueue.length &q3))))
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q1)]
+      (and (not (Persistent.Queue.ptr-eq &q2 &q3))
+           (= 2l (Persistent.Queue.length &q2))
+           (= 2l (Persistent.Queue.length &q3))))
     "branching queues preserve persistence")
 
   (assert-equal test
     true
     (let [q (build-long-queue 100000)]
-      (match (IntQueue.dequeue &q)
+      (match (Persistent.Queue.dequeue &q)
         (Maybe.Nothing) false
         (Maybe.Just p)
           (let [v @(Pair.a &p)
                 q2 @(Pair.b &p)]
-            (and (= v 0) (= (IntQueue.length &q2) 99999l)))))
+            (and (= v 0) (= (Persistent.Queue.length &q2) 99999l)))))
     "first dequeue on a 100k-rear queue reverses without blowing the C stack")
 
   (assert-equal test
     6
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)]
-      (IntQueue.reduce &(fn [acc x] (+ acc x)) 0 &q3))
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)]
+      (Persistent.Queue.reduce &(fn [acc x] (+ acc x)) 0 &q3))
     "reduce folds queue in FIFO order")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)
-          arr (IntQueue.to-array &q3)]
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)
+          arr (Persistent.Queue.to-array &q3)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 1)
            (= @(Array.unsafe-nth &arr 2) 3)))
@@ -136,24 +134,24 @@
 
   (assert-equal test
     true
-    (let [a0 (IntQueue.empty)
-          a1 (IntQueue.enqueue 1 &a0)
-          a2 (IntQueue.enqueue 2 &a1)
-          b (match (IntQueue.dequeue
-              &(IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0)))
-            (Maybe.Just p) (IntQueue.enqueue 2 &(IntQueue.enqueue 1 &a0))
+    (let [a0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          a1 (Persistent.Queue.enqueue 1 &a0)
+          a2 (Persistent.Queue.enqueue 2 &a1)
+          b (match (Persistent.Queue.dequeue
+              &(Persistent.Queue.enqueue 2 &(Persistent.Queue.enqueue 1 &a0)))
+            (Maybe.Just p) (Persistent.Queue.enqueue 2 &(Persistent.Queue.enqueue 1 &a0))
             (Maybe.Nothing) a0)]
       (= &a2 &b))
     "= is structural across internal front/rear splits")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)
-          mapped (IntQueue.map &(fn [x] (+ x 10)) &q3)
-          arr (IntQueue.to-array &mapped)]
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)
+          mapped (Persistent.Queue.map &(fn [x] (+ x 10)) &q3)
+          arr (Persistent.Queue.to-array &mapped)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 11)
            (= @(Array.unsafe-nth &arr 1) 12)
@@ -162,20 +160,20 @@
 
   (assert-equal test
     true
-    (let [q (IntQueue.empty)
-          m (IntQueue.map &(fn [x] (+ x 1)) &q)]
-      (IntQueue.empty? &m))
+    (let [q (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          m (Persistent.Queue.map &(fn [x] (+ x 1)) &q)]
+      (Persistent.Queue.empty? &m))
     "map over empty queue yields empty")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          q3 (IntQueue.enqueue 3 &q2)
-          q4 (IntQueue.enqueue 4 &q3)
-          filtered (IntQueue.filter &(fn [x] (> @x 2)) &q4)
-          arr (IntQueue.to-array &filtered)]
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          q3 (Persistent.Queue.enqueue 3 &q2)
+          q4 (Persistent.Queue.enqueue 4 &q3)
+          filtered (Persistent.Queue.filter &(fn [x] (> @x 2)) &q4)
+          arr (Persistent.Queue.to-array &filtered)]
       (and (= (Array.length &arr) 2)
            (= @(Array.unsafe-nth &arr 0) 3)
            (= @(Array.unsafe-nth &arr 1) 4)))
@@ -183,79 +181,79 @@
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          filtered (IntQueue.filter &(fn [x] false) &q2)]
-      (IntQueue.empty? &filtered))
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          filtered (Persistent.Queue.filter &(fn [x] false) &q2)]
+      (Persistent.Queue.empty? &filtered))
     "filter with always-false yields empty queue")
 
   (assert-equal test
     true
-    (let [q0 (IntQueue.empty)
-          q1 (IntQueue.enqueue 1 &q0)
-          q2 (IntQueue.enqueue 2 &q1)
-          filtered (IntQueue.filter &(fn [x] true) &q2)]
+    (let [q0 (the (Persistent.Queue Int) (Persistent.Queue.empty))
+          q1 (Persistent.Queue.enqueue 1 &q0)
+          q2 (Persistent.Queue.enqueue 2 &q1)
+          filtered (Persistent.Queue.filter &(fn [x] true) &q2)]
       (= &filtered &q2))
     "filter with always-true preserves all elements")
 
   (assert-equal test
     true
-    (let [q (IntQueue.enqueue 3
-                              &(IntQueue.enqueue 2
-                                                 &(IntQueue.enqueue 1
-                                                                    &(IntQueue.empty))))]
-      (IntQueue.any? &(fn [x] (= x &3)) &q))
+    (let [q (Persistent.Queue.enqueue 3
+                              &(Persistent.Queue.enqueue 2
+                                                 &(Persistent.Queue.enqueue 1
+                                                                    &(the (Persistent.Queue Int) (Persistent.Queue.empty)))))]
+      (Persistent.Queue.any? &(fn [x] (= x &3)) &q))
     "any? finds matching element")
 
   (assert-equal test
     false
-    (let [q (IntQueue.enqueue 3
-                              &(IntQueue.enqueue 2
-                                                 &(IntQueue.enqueue 1
-                                                                    &(IntQueue.empty))))]
-      (IntQueue.any? &(fn [x] (= x &99)) &q))
+    (let [q (Persistent.Queue.enqueue 3
+                              &(Persistent.Queue.enqueue 2
+                                                 &(Persistent.Queue.enqueue 1
+                                                                    &(the (Persistent.Queue Int) (Persistent.Queue.empty)))))]
+      (Persistent.Queue.any? &(fn [x] (= x &99)) &q))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [q (IntQueue.enqueue 3
-                              &(IntQueue.enqueue 2
-                                                 &(IntQueue.enqueue 1
-                                                                    &(IntQueue.empty))))]
-      (IntQueue.all? &(fn [x] (> @x 0)) &q))
+    (let [q (Persistent.Queue.enqueue 3
+                              &(Persistent.Queue.enqueue 2
+                                                 &(Persistent.Queue.enqueue 1
+                                                                    &(the (Persistent.Queue Int) (Persistent.Queue.empty)))))]
+      (Persistent.Queue.all? &(fn [x] (> @x 0)) &q))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [q (IntQueue.enqueue 3
-                              &(IntQueue.enqueue 2
-                                                 &(IntQueue.enqueue 1
-                                                                    &(IntQueue.empty))))]
-      (IntQueue.all? &(fn [x] (> @x 2)) &q))
+    (let [q (Persistent.Queue.enqueue 3
+                              &(Persistent.Queue.enqueue 2
+                                                 &(Persistent.Queue.enqueue 1
+                                                                    &(the (Persistent.Queue Int) (Persistent.Queue.empty)))))]
+      (Persistent.Queue.all? &(fn [x] (> @x 2)) &q))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntQueue.any? &(fn [x] (= x &1)) &(IntQueue.empty))
+    (Persistent.Queue.any? &(fn [x] (= x &1)) &(the (Persistent.Queue Int) (Persistent.Queue.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntQueue.all? &(fn [x] (= x &1)) &(IntQueue.empty))
+    (Persistent.Queue.all? &(fn [x] (= x &1)) &(the (Persistent.Queue Int) (Persistent.Queue.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     true
     (let [arr [10 20 30]
-          q (IntQueue.from-array &arr)
-          back (IntQueue.to-array &q)]
+          q (Persistent.Queue.from-array &arr)
+          back (Persistent.Queue.to-array &q)]
       (= &arr &back))
     "from-array round-trips through to-array")
 
   (assert-equal test
     true
-    (let [q (IntQueue.from-array &(the (Array Int) []))] (IntQueue.empty? &q))
+    (let [q (Persistent.Queue.from-array &(the (Array Int) []))] (Persistent.Queue.empty? &q))
     "from-array on empty array yields empty queue")
 
   (assert-memory-balance test

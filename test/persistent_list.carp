@@ -5,8 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-list IntList Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -14,99 +12,99 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn build-long-list [n]
-  (let-do [l (IntList.empty)] (for [i 0 n] (set! l (IntList.prepend i &l))) l))
+  (let-do [l (the (Persistent.List Int) (Persistent.List.empty))] (for [i 0 n] (set! l (Persistent.List.prepend i &l))) l))
 
 (defn list-branch-lifecycle []
-  (let [base (IntList.singleton 1)
-        left (IntList.prepend 2 &base)
-        right (IntList.prepend 3 &base)]
+  (let [base (Persistent.List.singleton 1)
+        left (Persistent.List.prepend 2 &base)
+        right (Persistent.List.prepend 3 &base)]
     (do (ignore left) (ignore right))))
 
 (deftest test
   (assert-equal test
     true
-    (let [l (IntList.empty)] (IntList.empty? &l))
+    (let [l (the (Persistent.List Int) (Persistent.List.empty))] (Persistent.List.empty? &l))
     "empty list reports empty")
 
   (assert-equal test
     0l
-    (let [l (IntList.empty)] (IntList.length &l))
+    (let [l (the (Persistent.List Int) (Persistent.List.empty))] (Persistent.List.length &l))
     "empty list has length 0")
 
   (assert-equal test
     2l
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)]
-      (IntList.length &l2))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)]
+      (Persistent.List.length &l2))
     "prepend increments length")
 
   (assert-equal test
     2
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)]
-      (match (IntList.head &l2) (Maybe.Just v) v (Maybe.Nothing) -1))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)]
+      (match (Persistent.List.head &l2) (Maybe.Just v) v (Maybe.Nothing) -1))
     "head reads first value")
 
   (assert-equal test
     1
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)]
-      (match (IntList.tail &l2)
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)]
+      (match (Persistent.List.tail &l2)
         (Maybe.Just t)
-          (match (IntList.head &t) (Maybe.Just v) v (Maybe.Nothing) -1)
+          (match (Persistent.List.head &t) (Maybe.Just v) v (Maybe.Nothing) -1)
         (Maybe.Nothing) -1))
     "tail exposes next value")
 
   (assert-equal test
     true
-    (let [base (IntList.singleton 1)
-          left (IntList.prepend 2 &base)
-          right (IntList.prepend 3 &base)]
-      (match (IntList.tail &left)
+    (let [base (Persistent.List.singleton 1)
+          left (Persistent.List.prepend 2 &base)
+          right (Persistent.List.prepend 3 &base)]
+      (match (Persistent.List.tail &left)
         (Maybe.Just lt)
-          (match (IntList.tail &right)
-            (Maybe.Just rt) (IntList.ptr-eq &lt &rt)
+          (match (Persistent.List.tail &right)
+            (Maybe.Just rt) (Persistent.List.ptr-eq &lt &rt)
             (Maybe.Nothing) false)
         (Maybe.Nothing) false))
     "branching preserves shared tail")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l0b (IntList.empty)
-          l1 (IntList.singleton 7)
-          d (IntList.drop-n 3l &l1)]
-      (and (IntList.ptr-eq &l0 &l0b)
-           (IntList.empty? &d)
-           (= (IntList.length &d) 0l)))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l0b (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.singleton 7)
+          d (Persistent.List.drop-n 3l &l1)]
+      (and (Persistent.List.ptr-eq &l0 &l0b)
+           (Persistent.List.empty? &d)
+           (= (Persistent.List.length &d) 0l)))
     "drop beyond length yields empty")
 
   (assert-equal test
     true
     (let [l (build-long-list 200000)
-          d (IntList.drop-n 200000l &l)]
-      (IntList.empty? &d))
+          d (Persistent.List.drop-n 200000l &l)]
+      (Persistent.List.empty? &d))
     "drop-n through a 200k-long list does not blow the C stack")
 
   (assert-equal test
     6
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 3 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 1 &l2)]
-      (IntList.reduce &(fn [acc x] (+ acc x)) 0 &l3))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 3 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 1 &l2)]
+      (Persistent.List.reduce &(fn [acc x] (+ acc x)) 0 &l3))
     "reduce folds head-to-tail")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 30 &l0)
-          l2 (IntList.prepend 20 &l1)
-          l3 (IntList.prepend 10 &l2)
-          arr (IntList.to-array &l3)]
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 30 &l0)
+          l2 (Persistent.List.prepend 20 &l1)
+          l3 (Persistent.List.prepend 10 &l2)
+          arr (Persistent.List.to-array &l3)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 10)
            (= @(Array.unsafe-nth &arr 1) 20)
@@ -115,38 +113,38 @@
 
   (assert-equal test
     true
-    (let [a0 (IntList.empty)
-          a1 (IntList.prepend 2 &a0)
-          a2 (IntList.prepend 1 &a1)
-          b0 (IntList.empty)
-          b1 (IntList.prepend 2 &b0)
-          b2 (IntList.prepend 1 &b1)
-          c0 (IntList.empty)
-          c1 (IntList.prepend 9 &c0)
-          c2 (IntList.prepend 1 &c1)]
+    (let [a0 (the (Persistent.List Int) (Persistent.List.empty))
+          a1 (Persistent.List.prepend 2 &a0)
+          a2 (Persistent.List.prepend 1 &a1)
+          b0 (the (Persistent.List Int) (Persistent.List.empty))
+          b1 (Persistent.List.prepend 2 &b0)
+          b2 (Persistent.List.prepend 1 &b1)
+          c0 (the (Persistent.List Int) (Persistent.List.empty))
+          c1 (Persistent.List.prepend 9 &c0)
+          c2 (Persistent.List.prepend 1 &c1)]
       (and (= &a2 &b2) (not (= &a2 &c2)) (not (= &a2 &a1))))
     "= is structural: equal shape + elements")
 
   (assert-equal test
     true
-    (let [l (IntList.empty)
-          r (IntList.reverse &l)] (IntList.empty? &r))
+    (let [l (the (Persistent.List Int) (Persistent.List.empty))
+          r (Persistent.List.reverse &l)] (Persistent.List.empty? &r))
     "reverse of empty list is empty")
 
   (assert-equal test
     true
-    (let [l (IntList.singleton 42)
-          r (IntList.reverse &l)] (= &r &l))
+    (let [l (Persistent.List.singleton 42)
+          r (Persistent.List.reverse &l)] (= &r &l))
     "reverse of singleton is itself")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)
-          rev (IntList.reverse &l3)
-          arr (IntList.to-array &rev)]
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)
+          rev (Persistent.List.reverse &l3)
+          arr (Persistent.List.to-array &rev)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 1)
            (= @(Array.unsafe-nth &arr 1) 2)
@@ -155,12 +153,12 @@
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)
-          mapped (IntList.map &(fn [x] (+ x 10)) &l3)
-          arr (IntList.to-array &mapped)]
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)
+          mapped (Persistent.List.map &(fn [x] (+ x 10)) &l3)
+          arr (Persistent.List.to-array &mapped)]
       (and (= (Array.length &arr) 3)
            (= @(Array.unsafe-nth &arr 0) 13)
            (= @(Array.unsafe-nth &arr 1) 12)
@@ -169,20 +167,20 @@
 
   (assert-equal test
     true
-    (let [l (IntList.empty)
-          m (IntList.map &(fn [x] (+ x 1)) &l)]
-      (IntList.empty? &m))
+    (let [l (the (Persistent.List Int) (Persistent.List.empty))
+          m (Persistent.List.map &(fn [x] (+ x 1)) &l)]
+      (Persistent.List.empty? &m))
     "map over empty list yields empty")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)
-          l4 (IntList.prepend 4 &l3)
-          filtered (IntList.filter &(fn [x] (> @x 2)) &l4)
-          arr (IntList.to-array &filtered)]
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)
+          l4 (Persistent.List.prepend 4 &l3)
+          filtered (Persistent.List.filter &(fn [x] (> @x 2)) &l4)
+          arr (Persistent.List.to-array &filtered)]
       (and (= (Array.length &arr) 2)
            (= @(Array.unsafe-nth &arr 0) 4)
            (= @(Array.unsafe-nth &arr 1) 3)))
@@ -190,79 +188,79 @@
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          filtered (IntList.filter &(fn [x] false) &l2)]
-      (IntList.empty? &filtered))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          filtered (Persistent.List.filter &(fn [x] false) &l2)]
+      (Persistent.List.empty? &filtered))
     "filter with always-false yields empty")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          filtered (IntList.filter &(fn [x] true) &l2)]
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          filtered (Persistent.List.filter &(fn [x] true) &l2)]
       (= &filtered &l2))
     "filter with always-true preserves all elements")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)]
-      (IntList.any? &(fn [x] (= x &3)) &l3))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)]
+      (Persistent.List.any? &(fn [x] (= x &3)) &l3))
     "any? finds matching element")
 
   (assert-equal test
     false
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)]
-      (IntList.any? &(fn [x] (= x &99)) &l3))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)]
+      (Persistent.List.any? &(fn [x] (= x &99)) &l3))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)]
-      (IntList.all? &(fn [x] (> @x 0)) &l3))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)]
+      (Persistent.List.all? &(fn [x] (> @x 0)) &l3))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [l0 (IntList.empty)
-          l1 (IntList.prepend 1 &l0)
-          l2 (IntList.prepend 2 &l1)
-          l3 (IntList.prepend 3 &l2)]
-      (IntList.all? &(fn [x] (> @x 2)) &l3))
+    (let [l0 (the (Persistent.List Int) (Persistent.List.empty))
+          l1 (Persistent.List.prepend 1 &l0)
+          l2 (Persistent.List.prepend 2 &l1)
+          l3 (Persistent.List.prepend 3 &l2)]
+      (Persistent.List.all? &(fn [x] (> @x 2)) &l3))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntList.any? &(fn [x] (= x &1)) &(IntList.empty))
+    (Persistent.List.any? &(fn [x] (= x &1)) &(the (Persistent.List Int) (Persistent.List.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntList.all? &(fn [x] (= x &1)) &(IntList.empty))
+    (Persistent.List.all? &(fn [x] (= x &1)) &(the (Persistent.List Int) (Persistent.List.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     true
     (let [arr [10 20 30]
-          l (IntList.from-array &arr)
-          back (IntList.to-array &l)]
+          l (Persistent.List.from-array &arr)
+          back (Persistent.List.to-array &l)]
       (= &arr &back))
     "from-array round-trips through to-array")
 
   (assert-equal test
     true
-    (let [l (IntList.from-array &(the (Array Int) []))] (IntList.empty? &l))
+    (let [l (Persistent.List.from-array &(the (Array Int) []))] (Persistent.List.empty? &l))
     "from-array on empty array yields empty list")
 
   (assert-memory-balance test

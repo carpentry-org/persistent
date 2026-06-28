@@ -1,0 +1,644 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/persistent">
+                    <img src="">
+                </a>
+                <div class="title">
+                    persistent
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <details>
+                                <summary>
+                                    <a href="Persistent.html">
+                                        Persistent
+                                    </a>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="Persistent.Deque.html">
+                                            Deque
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashMap.html">
+                                            HashMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashSet.html">
+                                            HashSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Heap.html">
+                                            Heap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.List.html">
+                                            List
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdMap.html">
+                                            OrdMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdSet.html">
+                                            OrdSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Queue.html">
+                                            Queue
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Trie.html">
+                                            Trie
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Vector.html">
+                                            Vector
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li>
+                            <a href="Design.html">
+                                Design
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Testing.html">
+                                Testing
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    Persistent.HashSet
+                </h1>
+                <div class="module-description">
+                    
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#=">
+                        <h3 id="=">
+                            =
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) StaticLifetime), (Ref (Persistent.HashSet a) StaticLifetime)] Bool)
+                    </p>
+                    <pre class="args">
+                        (= a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Structural equality: same size and same set of members.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#all?">
+                        <h3 id="all?">
+                            all?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref a b)] Bool) StaticLifetime), (Ref (Persistent.HashSet a) c)] Bool)
+                    </p>
+                    <pre class="args">
+                        (all? pred coll-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return true if all elements satisfy the predicate.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#any?">
+                        <h3 id="any?">
+                            any?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref a b)] Bool) StaticLifetime), (Ref (Persistent.HashSet a) c)] Bool)
+                    </p>
+                    <pre class="args">
+                        (any? pred coll-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return true if any element satisfies the predicate.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#contains?">
+                        <h3 id="contains?">
+                            contains?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref a b), (Ref (Persistent.HashSet a) b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (contains? value-ref set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Returns <code>true</code> when value exists in set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#copy">
+                        <h3 id="copy">
+                            copy
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] (Persistent.HashSet a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>copies a <code>HashSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#delete">
+                        <h3 id="delete">
+                            delete
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.HashSet a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>deletes a <code>HashSet</code>. Should usually not be called manually.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#difference">
+                        <h3 id="difference">
+                            difference
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b), (Ref (Persistent.HashSet a) StaticLifetime)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (difference a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return the difference of two sets (elements in the first but not the second).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#each">
+                        <h3 id="each">
+                            each
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [a] ()) StaticLifetime), (Ref (Persistent.HashSet a) b)] ())
+                    </p>
+                    <pre class="args">
+                        (each f set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Invoke a side-effecting function on every value.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#empty">
+                        <h3 id="empty">
+                            empty
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (empty)
+                    </pre>
+                    <p class="doc">
+                        <p>Create an empty hash set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#empty?">
+                        <h3 id="empty?">
+                            empty?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (empty? set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Returns <code>true</code> when set contains no entries.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#from-array">
+                        <h3 id="from-array">
+                            from-array
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Array a) b)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (from-array arr-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Build a hash set from an <code>Array</code> of values.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#impl">
+                        <h3 id="impl">
+                            impl
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] (Ref (Persistent.HashMap a Bool) b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>impl</code> property of a <code>HashSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#init">
+                        <h3 id="init">
+                            init
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.HashMap a Bool)] (Persistent.HashSet a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>creates a <code>HashSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#insert">
+                        <h3 id="insert">
+                            insert
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [a, (Ref (Persistent.HashSet a) b)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (insert value set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Insert value, returning a new set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#intersection">
+                        <h3 id="intersection">
+                            intersection
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b), (Ref (Persistent.HashSet a) StaticLifetime)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (intersection a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return the intersection of two sets (elements present in both).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#length">
+                        <h3 id="length">
+                            length
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] Long)
+                    </p>
+                    <pre class="args">
+                        (length set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return number of stored set entries.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#prn">
+                        <h3 id="prn">
+                            prn
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] String)
+                    </p>
+                    <pre class="args">
+                        (prn set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>converts a <code>HashSet</code> to a string.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#ptr-eq">
+                        <h3 id="ptr-eq">
+                            ptr-eq
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b), (Ref (Persistent.HashSet a) b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (ptr-eq a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Pointer identity check for underlying map.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#reduce">
+                        <h3 id="reduce">
+                            reduce
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [a, b] a) StaticLifetime), a, (Ref (Persistent.HashSet b) c)] a)
+                    </p>
+                    <pre class="args">
+                        (reduce f init set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Reduce over all values with accumulator.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#remove">
+                        <h3 id="remove">
+                            remove
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref a b), (Ref (Persistent.HashSet a) b)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (remove value-ref set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Remove value (if present), returning a new set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-impl">
+                        <h3 id="set-impl">
+                            set-impl
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.HashSet a), (Persistent.HashMap a Bool)] (Persistent.HashSet a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>impl</code> property of a <code>HashSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-impl!">
+                        <h3 id="set-impl!">
+                            set-impl!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b), (Persistent.HashMap a Bool)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>impl</code> property of a <code>HashSet</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#singleton">
+                        <h3 id="singleton">
+                            singleton
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [a] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (singleton value)
+                    </pre>
+                    <p class="doc">
+                        <p>Create a singleton hash set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#str">
+                        <h3 id="str">
+                            str
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] String)
+                    </p>
+                    <pre class="args">
+                        (str set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Diagnostic formatting for a hash set.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#to-array">
+                        <h3 id="to-array">
+                            to-array
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b)] (Array a))
+                    </p>
+                    <pre class="args">
+                        (to-array set-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Copy all values into an <code>Array</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#union">
+                        <h3 id="union">
+                            union
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Persistent.HashSet a) b), (Ref (Persistent.HashSet a) c)] (Persistent.HashSet a))
+                    </p>
+                    <pre class="args">
+                        (union a-ref b-ref)
+                    </pre>
+                    <p class="doc">
+                        <p>Return the union of two sets (all elements from either set).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-impl">
+                        <h3 id="update-impl">
+                            update-impl
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Persistent.HashSet a), (Ref (Fn [(Persistent.HashMap a Bool)] (Persistent.HashMap a Bool) b) c)] (Persistent.HashSet a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>impl</code> property of a <code>(Persistent.HashSet a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

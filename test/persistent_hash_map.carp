@@ -5,8 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-hash-map IntIntMap Int Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -14,300 +12,300 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn map-branch-lifecycle []
-  (let [m0 (IntIntMap.empty)
-        m1 (IntIntMap.insert 1 10 &m0)
-        m2 (IntIntMap.insert 2 20 &m1)
-        m3 (IntIntMap.insert 3 30 &m1)
+  (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+        m1 (Persistent.HashMap.insert 1 10 &m0)
+        m2 (Persistent.HashMap.insert 2 20 &m1)
+        m3 (Persistent.HashMap.insert 3 30 &m1)
         k1 1
-        m4 (IntIntMap.remove &k1 &m2)]
+        m4 (Persistent.HashMap.remove &k1 &m2)]
     (do (ignore m3) (ignore m4))))
 
 (deftest test
   (assert-equal test
     true
-    (let [m (IntIntMap.empty)] (IntIntMap.empty? &m))
+    (let [m (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))] (Persistent.HashMap.empty? &m))
     "empty hash map reports empty")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 20 &m1)
-          m3 (IntIntMap.insert 3 30 &m2)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 20 &m1)
+          m3 (Persistent.HashMap.insert 3 30 &m2)
           k1 1
           k2 2
           k3 3]
-      (and (= (IntIntMap.length &m3) 3l)
-           (match (IntIntMap.get &k1 &m3)
+      (and (= (Persistent.HashMap.length &m3) 3l)
+           (match (Persistent.HashMap.get &k1 &m3)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k2 &m3)
+           (match (Persistent.HashMap.get &k2 &m3)
              (Maybe.Just v) (= v 20)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k3 &m3)
+           (match (Persistent.HashMap.get &k3 &m3)
              (Maybe.Just v) (= v 30)
              (Maybe.Nothing) false)))
     "insert/get stores and retrieves keys")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 5 1 &m0)
-          m2 (IntIntMap.insert 5 9 &m1)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 5 1 &m0)
+          m2 (Persistent.HashMap.insert 5 9 &m1)
           k 5]
-      (and (= (IntIntMap.length &m2) 1l)
-           (match (IntIntMap.get &k &m2)
+      (and (= (Persistent.HashMap.length &m2) 1l)
+           (match (Persistent.HashMap.get &k &m2)
              (Maybe.Just v) (= v 9)
              (Maybe.Nothing) false)))
     "replacing value does not change size")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 20 &m1)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 20 &m1)
           k1 1
           k2 2
-          m3 (IntIntMap.remove &k1 &m2)]
-      (and (= (IntIntMap.length &m3) 1l)
-           (not (IntIntMap.contains? &k1 &m3))
-           (IntIntMap.contains? &k2 &m3)))
+          m3 (Persistent.HashMap.remove &k1 &m2)]
+      (and (= (Persistent.HashMap.length &m3) 1l)
+           (not (Persistent.HashMap.contains? &k1 &m3))
+           (Persistent.HashMap.contains? &k2 &m3)))
     "remove drops only target key")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 9 1 &m0)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 9 1 &m0)
           k 9]
-      (and (not (IntIntMap.contains? &k &m0)) (IntIntMap.contains? &k &m1)))
+      (and (not (Persistent.HashMap.contains? &k &m0)) (Persistent.HashMap.contains? &k &m1)))
     "persistence keeps prior map unchanged")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert Int.MIN 42 &m0)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert Int.MIN 42 &m0)
           k Int.MIN]
-      (match (IntIntMap.get &k &m1)
+      (match (Persistent.HashMap.get &k &m1)
         (Maybe.Just v) (= v 42)
         (Maybe.Nothing) false))
     "Int.MIN key does not trap in hash-path (Int.abs(INT_MIN) UB)")
 
   (assert-equal test
     6
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 1 &m0)
-          m2 (IntIntMap.insert 2 2 &m1)
-          m3 (IntIntMap.insert 3 3 &m2)]
-      (IntIntMap.reduce &(fn [acc p] (+ acc @(Pair.b &p))) 0 &m3))
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 1 &m0)
+          m2 (Persistent.HashMap.insert 2 2 &m1)
+          m3 (Persistent.HashMap.insert 3 3 &m2)]
+      (Persistent.HashMap.reduce &(fn [acc p] (+ acc @(Pair.b &p))) 0 &m3))
     "reduce sums values")
 
   (assert-equal test
     3
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 20 &m1)
-          m3 (IntIntMap.insert 3 30 &m2)
-          ks (IntIntMap.keys &m3)]
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 20 &m1)
+          m3 (Persistent.HashMap.insert 3 30 &m2)
+          ks (Persistent.HashMap.keys &m3)]
       (Array.length &ks))
     "keys returns all keys")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 20 &m1)
-          m3 (IntIntMap.insert 3 30 &m2)
-          mapped (IntIntMap.map-values &(fn [v] (+ v 100)) &m3)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 20 &m1)
+          m3 (Persistent.HashMap.insert 3 30 &m2)
+          mapped (Persistent.HashMap.map-values &(fn [v] (+ v 100)) &m3)
           k1 1
           k2 2
           k3 3]
-      (and (= (IntIntMap.length &mapped) 3l)
-           (match (IntIntMap.get &k1 &mapped)
+      (and (= (Persistent.HashMap.length &mapped) 3l)
+           (match (Persistent.HashMap.get &k1 &mapped)
              (Maybe.Just v) (= v 110)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k2 &mapped)
+           (match (Persistent.HashMap.get &k2 &mapped)
              (Maybe.Just v) (= v 120)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k3 &mapped)
+           (match (Persistent.HashMap.get &k3 &mapped)
              (Maybe.Just v) (= v 130)
              (Maybe.Nothing) false)))
     "map-values transforms values keeping keys")
 
   (assert-equal test
     true
-    (let [m (IntIntMap.empty)
-          mapped (IntIntMap.map-values &(fn [v] (+ v 1)) &m)]
-      (IntIntMap.empty? &mapped))
+    (let [m (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          mapped (Persistent.HashMap.map-values &(fn [v] (+ v 1)) &m)]
+      (Persistent.HashMap.empty? &mapped))
     "map-values over empty map yields empty")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 5 &m1)
-          m3 (IntIntMap.insert 3 30 &m2)
-          filtered (IntIntMap.filter &(fn [p] (> @(Pair.b p) 8)) &m3)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 5 &m1)
+          m3 (Persistent.HashMap.insert 3 30 &m2)
+          filtered (Persistent.HashMap.filter &(fn [p] (> @(Pair.b p) 8)) &m3)
           k1 1
           k2 2
           k3 3]
-      (and (= (IntIntMap.length &filtered) 2l)
-           (IntIntMap.contains? &k1 &filtered)
-           (not (IntIntMap.contains? &k2 &filtered))
-           (IntIntMap.contains? &k3 &filtered)))
+      (and (= (Persistent.HashMap.length &filtered) 2l)
+           (Persistent.HashMap.contains? &k1 &filtered)
+           (not (Persistent.HashMap.contains? &k2 &filtered))
+           (Persistent.HashMap.contains? &k3 &filtered)))
     "filter keeps entries matching predicate")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          filtered (IntIntMap.filter &(fn [p] false) &m1)]
-      (IntIntMap.empty? &filtered))
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          filtered (Persistent.HashMap.filter &(fn [p] false) &m1)]
+      (Persistent.HashMap.empty? &filtered))
     "filter with always-false yields empty map")
 
   (assert-equal test
     true
-    (let [m0 (IntIntMap.empty)
-          m1 (IntIntMap.insert 1 10 &m0)
-          m2 (IntIntMap.insert 2 20 &m1)
-          filtered (IntIntMap.filter &(fn [p] true) &m2)
+    (let [m0 (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.insert 1 10 &m0)
+          m2 (Persistent.HashMap.insert 2 20 &m1)
+          filtered (Persistent.HashMap.filter &(fn [p] true) &m2)
           k1 1
           k2 2]
-      (and (= (IntIntMap.length &filtered) 2l)
-           (IntIntMap.contains? &k1 &filtered)
-           (IntIntMap.contains? &k2 &filtered)))
+      (and (= (Persistent.HashMap.length &filtered) 2l)
+           (Persistent.HashMap.contains? &k1 &filtered)
+           (Persistent.HashMap.contains? &k2 &filtered)))
     "filter with always-true preserves all entries")
 
-  ; NOTE: IntIntMap.= crashes on ARM64 due to a pre-existing Carp compiler
+  ; NOTE: Persistent.HashMap.= crashes on ARM64 due to a pre-existing Carp compiler
   ; bug with nested closure captures in hash-map reduce.  The test is
   ; retained for platforms where it works.
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 2 20 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))
-          b (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
-          c (IntIntMap.insert 1 99 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))]
+    (let [a (Persistent.HashMap.insert 2 20 &(Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          b (Persistent.HashMap.insert 1 10 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          c (Persistent.HashMap.insert 1 99 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
-          b (IntIntMap.insert 3 30 &(IntIntMap.insert 4 40 &(IntIntMap.empty)))
-          m (IntIntMap.merge &a &b)]
-      (and (= (IntIntMap.length &m) 4l)
+    (let [a (Persistent.HashMap.insert 1 10 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          b (Persistent.HashMap.insert 3 30 &(Persistent.HashMap.insert 4 40 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          m (Persistent.HashMap.merge &a &b)]
+      (and (= (Persistent.HashMap.length &m) 4l)
            (let [k1 1
                  k3 3]
              (and
-               (match (IntIntMap.get &k1 &m)
+               (match (Persistent.HashMap.get &k1 &m)
                  (Maybe.Just v) (= v 10)
                  (Maybe.Nothing) false)
-               (match (IntIntMap.get &k3 &m)
+               (match (Persistent.HashMap.get &k3 &m)
                  (Maybe.Just v) (= v 30)
                  (Maybe.Nothing) false)))))
     "merge of disjoint maps contains all entries")
 
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
-          b (IntIntMap.insert 2 99 &(IntIntMap.insert 3 30 &(IntIntMap.empty)))
-          m (IntIntMap.merge &a &b)
+    (let [a (Persistent.HashMap.insert 1 10 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          b (Persistent.HashMap.insert 2 99 &(Persistent.HashMap.insert 3 30 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          m (Persistent.HashMap.merge &a &b)
           k 2]
-      (and (= (IntIntMap.length &m) 3l)
-           (match (IntIntMap.get &k &m)
+      (and (= (Persistent.HashMap.length &m) 3l)
+           (match (Persistent.HashMap.get &k &m)
              (Maybe.Just v) (= v 99)
              (Maybe.Nothing) false)))
     "merge right wins on key collision")
 
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
-          e (IntIntMap.empty)
-          m1 (IntIntMap.merge &a &e)
-          m2 (IntIntMap.merge &e &a)]
+    (let [a (Persistent.HashMap.insert 1 10 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          e (the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))
+          m1 (Persistent.HashMap.merge &a &e)
+          m2 (Persistent.HashMap.merge &e &a)]
       (and (= &m1 &a) (= &m2 &a)))
     "merge with empty is identity")
 
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 1 10 &(IntIntMap.insert 2 20 &(IntIntMap.empty)))
-          b (IntIntMap.insert 2 3 &(IntIntMap.insert 3 30 &(IntIntMap.empty)))
-          m (IntIntMap.merge-with &(fn [x y] (+ x y)) &a &b)
+    (let [a (Persistent.HashMap.insert 1 10 &(Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          b (Persistent.HashMap.insert 2 3 &(Persistent.HashMap.insert 3 30 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))
+          m (Persistent.HashMap.merge-with &(fn [x y] (+ x y)) &a &b)
           k1 1
           k2 2
           k3 3]
-      (and (= (IntIntMap.length &m) 3l)
-           (match (IntIntMap.get &k1 &m)
+      (and (= (Persistent.HashMap.length &m) 3l)
+           (match (Persistent.HashMap.get &k1 &m)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k2 &m)
+           (match (Persistent.HashMap.get &k2 &m)
              (Maybe.Just v) (= v 23)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k3 &m)
+           (match (Persistent.HashMap.get &k3 &m)
              (Maybe.Just v) (= v 30)
              (Maybe.Nothing) false)))
     "merge-with addition combiner on overlapping keys")
 
   (assert-equal test
     true
-    (let [a (IntIntMap.insert 1 10 &(IntIntMap.empty))
-          b (IntIntMap.insert 2 20 &(IntIntMap.empty))
-          m (IntIntMap.merge-with &(fn [x y] (+ x y)) &a &b)
+    (let [a (Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty)))
+          b (Persistent.HashMap.insert 2 20 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty)))
+          m (Persistent.HashMap.merge-with &(fn [x y] (+ x y)) &a &b)
           k1 1
           k2 2]
-      (and (= (IntIntMap.length &m) 2l)
-           (match (IntIntMap.get &k1 &m)
+      (and (= (Persistent.HashMap.length &m) 2l)
+           (match (Persistent.HashMap.get &k1 &m)
              (Maybe.Just v) (= v 10)
              (Maybe.Nothing) false)
-           (match (IntIntMap.get &k2 &m)
+           (match (Persistent.HashMap.get &k2 &m)
              (Maybe.Just v) (= v 20)
              (Maybe.Nothing) false)))
     "merge-with on disjoint maps just takes values")
 
   (assert-equal test
     true
-    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
-      (IntIntMap.any? &(fn [p] (> @(Pair.b p) 8)) &m))
+    (let [m (Persistent.HashMap.insert 2 5 &(Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))]
+      (Persistent.HashMap.any? &(fn [p] (> @(Pair.b p) 8)) &m))
     "any? finds matching entry")
 
   (assert-equal test
     false
-    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
-      (IntIntMap.any? &(fn [p] (> @(Pair.b p) 99)) &m))
+    (let [m (Persistent.HashMap.insert 2 5 &(Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))]
+      (Persistent.HashMap.any? &(fn [p] (> @(Pair.b p) 99)) &m))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
-      (IntIntMap.all? &(fn [p] (> @(Pair.b p) 0)) &m))
+    (let [m (Persistent.HashMap.insert 2 5 &(Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))]
+      (Persistent.HashMap.all? &(fn [p] (> @(Pair.b p) 0)) &m))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [m (IntIntMap.insert 2 5 &(IntIntMap.insert 1 10 &(IntIntMap.empty)))]
-      (IntIntMap.all? &(fn [p] (> @(Pair.b p) 8)) &m))
+    (let [m (Persistent.HashMap.insert 2 5 &(Persistent.HashMap.insert 1 10 &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty))))]
+      (Persistent.HashMap.all? &(fn [p] (> @(Pair.b p) 8)) &m))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntIntMap.any? &(fn [p] true) &(IntIntMap.empty))
+    (Persistent.HashMap.any? &(fn [p] true) &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntIntMap.all? &(fn [p] false) &(IntIntMap.empty))
+    (Persistent.HashMap.all? &(fn [p] false) &(the (Persistent.HashMap Int Int) (Persistent.HashMap.empty)))
     "all? on empty returns true")
   (assert-equal test
     true
     (let [arr [(Pair.init 1 10) (Pair.init 2 20)]
-          m (IntIntMap.from-array &arr)]
-      (and (= (IntIntMap.length &m) 2l)
-           (= &(Maybe.Just 10) &(IntIntMap.get &1 &m))
-           (= &(Maybe.Just 20) &(IntIntMap.get &2 &m))))
+          m (Persistent.HashMap.from-array &arr)]
+      (and (= (Persistent.HashMap.length &m) 2l)
+           (= &(Maybe.Just 10) &(Persistent.HashMap.get &1 &m))
+           (= &(Maybe.Just 20) &(Persistent.HashMap.get &2 &m))))
     "from-array builds map from pairs")
 
   (assert-equal test
     true
-    (let [m (IntIntMap.from-array &(the (Array (Pair Int Int)) []))]
-      (IntIntMap.empty? &m))
+    (let [m (Persistent.HashMap.from-array &(the (Array (Pair Int Int)) []))]
+      (Persistent.HashMap.empty? &m))
     "from-array on empty array yields empty map")
 
   (assert-memory-balance test

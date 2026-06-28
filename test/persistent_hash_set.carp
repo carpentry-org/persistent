@@ -5,8 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-hash-set IntSet Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -14,178 +12,178 @@
     (assert-equal state expected-balance (Debug.memory-balance) descr)))
 
 (defn set-branch-lifecycle []
-  (let [s0 (IntSet.empty)
-        s1 (IntSet.insert 1 &s0)
-        s2 (IntSet.insert 2 &s1)
-        s3 (IntSet.insert 3 &s1)
+  (let [s0 (the (Persistent.HashSet Int) (Persistent.HashSet.empty))
+        s1 (Persistent.HashSet.insert 1 &s0)
+        s2 (Persistent.HashSet.insert 2 &s1)
+        s3 (Persistent.HashSet.insert 3 &s1)
         v1 1
-        s4 (IntSet.remove &v1 &s2)]
+        s4 (Persistent.HashSet.remove &v1 &s2)]
     (do (ignore s3) (ignore s4))))
 
 (deftest test
   (assert-equal test
     true
-    (let [s (IntSet.empty)] (IntSet.empty? &s))
+    (let [s (the (Persistent.HashSet Int) (Persistent.HashSet.empty))] (Persistent.HashSet.empty? &s))
     "empty hash set reports empty")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 1 &s0)
-          s2 (IntSet.insert 2 &s1)
+    (let [s0 (the (Persistent.HashSet Int) (Persistent.HashSet.empty))
+          s1 (Persistent.HashSet.insert 1 &s0)
+          s2 (Persistent.HashSet.insert 2 &s1)
           v1 1
           v2 2]
-      (and (= (IntSet.length &s2) 2l)
-           (IntSet.contains? &v1 &s2)
-           (IntSet.contains? &v2 &s2)))
+      (and (= (Persistent.HashSet.length &s2) 2l)
+           (Persistent.HashSet.contains? &v1 &s2)
+           (Persistent.HashSet.contains? &v2 &s2)))
     "insert/contains works")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 7 &s0)
-          s2 (IntSet.insert 7 &s1)]
-      (= (IntSet.length &s2) 1l))
+    (let [s0 (the (Persistent.HashSet Int) (Persistent.HashSet.empty))
+          s1 (Persistent.HashSet.insert 7 &s0)
+          s2 (Persistent.HashSet.insert 7 &s1)]
+      (= (Persistent.HashSet.length &s2) 1l))
     "duplicate insert is idempotent")
 
   (assert-equal test
     true
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 1 &s0)
-          s2 (IntSet.insert 2 &s1)
+    (let [s0 (the (Persistent.HashSet Int) (Persistent.HashSet.empty))
+          s1 (Persistent.HashSet.insert 1 &s0)
+          s2 (Persistent.HashSet.insert 2 &s1)
           v1 1
           v2 2
-          s3 (IntSet.remove &v1 &s2)]
-      (and (= (IntSet.length &s3) 1l)
-           (not (IntSet.contains? &v1 &s3))
-           (IntSet.contains? &v2 &s3)))
+          s3 (Persistent.HashSet.remove &v1 &s2)]
+      (and (= (Persistent.HashSet.length &s3) 1l)
+           (not (Persistent.HashSet.contains? &v1 &s3))
+           (Persistent.HashSet.contains? &v2 &s3)))
     "remove drops only target value")
 
   (assert-equal test
     3
-    (let [s0 (IntSet.empty)
-          s1 (IntSet.insert 10 &s0)
-          s2 (IntSet.insert 20 &s1)
-          s3 (IntSet.insert 30 &s2)
-          arr (IntSet.to-array &s3)]
+    (let [s0 (the (Persistent.HashSet Int) (Persistent.HashSet.empty))
+          s1 (Persistent.HashSet.insert 10 &s0)
+          s2 (Persistent.HashSet.insert 20 &s1)
+          s3 (Persistent.HashSet.insert 30 &s2)
+          arr (Persistent.HashSet.to-array &s3)]
       (Array.length &arr))
     "to-array has count elements")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 1 &(IntSet.insert 2 &(IntSet.empty)))
-          c (IntSet.insert 3 &(IntSet.insert 1 &(IntSet.empty)))]
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          b (Persistent.HashSet.insert 1 &(Persistent.HashSet.insert 2 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          c (Persistent.HashSet.insert 3 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural regardless of insertion order")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          u (IntSet.union &a &b)]
-      (= (IntSet.length &u) 3l))
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          b (Persistent.HashSet.insert 3 &(Persistent.HashSet.insert 2 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          u (Persistent.HashSet.union &a &b)]
+      (= (Persistent.HashSet.length &u) 3l))
     "union merges elements from both sets")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          u (IntSet.union &a &(IntSet.empty))]
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          u (Persistent.HashSet.union &a &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))]
       (= &a &u))
     "union with empty set is identity")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          i (IntSet.intersection &a &b)
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          b (Persistent.HashSet.insert 3 &(Persistent.HashSet.insert 2 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          i (Persistent.HashSet.intersection &a &b)
           v2 2]
-      (and (= (IntSet.length &i) 1l) (IntSet.contains? &v2 &i)))
+      (and (= (Persistent.HashSet.length &i) 1l) (Persistent.HashSet.contains? &v2 &i)))
     "intersection keeps only shared elements")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          b (IntSet.insert 4 &(IntSet.insert 3 &(IntSet.empty)))
-          i (IntSet.intersection &a &b)]
-      (IntSet.empty? &i))
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          b (Persistent.HashSet.insert 4 &(Persistent.HashSet.insert 3 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          i (Persistent.HashSet.intersection &a &b)]
+      (Persistent.HashSet.empty? &i))
     "intersection of disjoint sets is empty")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))
-          b (IntSet.insert 3 &(IntSet.insert 2 &(IntSet.empty)))
-          d (IntSet.difference &a &b)
+    (let [a (Persistent.HashSet.insert 3
+                           &(Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))))
+          b (Persistent.HashSet.insert 3 &(Persistent.HashSet.insert 2 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          d (Persistent.HashSet.difference &a &b)
           v1 1]
-      (and (= (IntSet.length &d) 1l) (IntSet.contains? &v1 &d)))
+      (and (= (Persistent.HashSet.length &d) 1l) (Persistent.HashSet.contains? &v1 &d)))
     "difference removes elements in second set")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          d (IntSet.difference &a &(IntSet.empty))]
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          d (Persistent.HashSet.difference &a &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))]
       (= &a &d))
     "difference with empty set is identity")
 
   (assert-equal test
     true
-    (let [a (IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty)))
-          d (IntSet.difference &a &a)]
-      (IntSet.empty? &d))
+    (let [a (Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty))))
+          d (Persistent.HashSet.difference &a &a)]
+      (Persistent.HashSet.empty? &d))
     "difference with self is empty")
 
   (assert-equal test
     true
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.any? &(fn [x] (= x &3)) &s))
+    (let [s (Persistent.HashSet.insert 3
+                           &(Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))))]
+      (Persistent.HashSet.any? &(fn [x] (= x &3)) &s))
     "any? finds matching element")
 
   (assert-equal test
     false
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.any? &(fn [x] (= x &99)) &s))
+    (let [s (Persistent.HashSet.insert 3
+                           &(Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))))]
+      (Persistent.HashSet.any? &(fn [x] (= x &99)) &s))
     "any? returns false when none match")
 
   (assert-equal test
     true
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.all? &(fn [x] (> @x 0)) &s))
+    (let [s (Persistent.HashSet.insert 3
+                           &(Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))))]
+      (Persistent.HashSet.all? &(fn [x] (> @x 0)) &s))
     "all? returns true when all match")
 
   (assert-equal test
     false
-    (let [s (IntSet.insert 3
-                           &(IntSet.insert 2 &(IntSet.insert 1 &(IntSet.empty))))]
-      (IntSet.all? &(fn [x] (> @x 2)) &s))
+    (let [s (Persistent.HashSet.insert 3
+                           &(Persistent.HashSet.insert 2 &(Persistent.HashSet.insert 1 &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))))]
+      (Persistent.HashSet.all? &(fn [x] (> @x 2)) &s))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntSet.any? &(fn [x] (= x &1)) &(IntSet.empty))
+    (Persistent.HashSet.any? &(fn [x] (= x &1)) &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntSet.all? &(fn [x] (= x &1)) &(IntSet.empty))
+    (Persistent.HashSet.all? &(fn [x] (= x &1)) &(the (Persistent.HashSet Int) (Persistent.HashSet.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     true
     (let [arr [3 1 2]
-          s (IntSet.from-array &arr)]
-      (and (= (IntSet.length &s) 3l)
-           (IntSet.contains? &3 &s)
-           (IntSet.contains? &1 &s)
-           (IntSet.contains? &2 &s)))
+          s (Persistent.HashSet.from-array &arr)]
+      (and (= (Persistent.HashSet.length &s) 3l)
+           (Persistent.HashSet.contains? &3 &s)
+           (Persistent.HashSet.contains? &1 &s)
+           (Persistent.HashSet.contains? &2 &s)))
     "from-array builds set containing all elements")
 
   (assert-equal test
     true
-    (let [s (IntSet.from-array &(the (Array Int) []))] (IntSet.empty? &s))
+    (let [s (Persistent.HashSet.from-array &(the (Array Int) []))] (Persistent.HashSet.empty? &s))
     "from-array on empty array yields empty set")
 
   (assert-memory-balance test

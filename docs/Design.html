@@ -18,9 +18,65 @@
                 <div class="index">
                     <ul>
                         <li>
-                            <a href="Persistent.html">
-                                Persistent
-                            </a>
+                            <details>
+                                <summary>
+                                    <a href="Persistent.html">
+                                        Persistent
+                                    </a>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="Persistent.Deque.html">
+                                            Deque
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashMap.html">
+                                            HashMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashSet.html">
+                                            HashSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Heap.html">
+                                            Heap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.List.html">
+                                            List
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdMap.html">
+                                            OrdMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdSet.html">
+                                            OrdSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Queue.html">
+                                            Queue
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Trie.html">
+                                            Trie
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Vector.html">
+                                            Vector
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         <li>
                             <a href="Design.html">
@@ -40,57 +96,52 @@
                     Design
                 </h1>
                 <div class="module-description">
-                    <p>Design overview for <code>persistent</code>.</p>
-<h2>Purpose</h2>
-<p><code>persistent</code> provides macro-generated immutable data structures for Carp,
-implemented with structural sharing on top of <code>rc</code>.</p>
-<h2>Included Structures</h2>
+                    <p>How <code>persistent</code> is built.</p>
+<p>This is for people curious about the internals. If you just want to use the
+library, the README and per-function docs cover the user surface.</p>
+<h2>What 'persistent' means here</h2>
+<p>Each collection update returns a new collection that shares most of its
+memory with the old one. The old version stays valid. That's it.
+Updates allocate only along the path that changed; everything else is reused
+by pointer. <code>Rc</code> (reference counting) keeps the shared parts alive until the
+last version that points at them is gone.</p>
+<h2>Why a macro generator</h2>
+<p>Each collection is actually a small family of types: a public wrapper, one
+or more internal recursive node types, reference-counted handles for those
+nodes, and a module of operations. <code>Rc.define</code> itself is a generator that
+runs per node type, so the whole stack has to be specialized at expansion
+time. Generating it through <code>Persistent.define-*</code> gives you stable
+namespaces (<code>IntList</code>, <code>StrMap</code>, …) and direct calls with no runtime
+dispatch.</p>
+<h2>Collections at a glance</h2>
 <ul>
-<li>Persistent List (<code>Persistent.define-list</code>)</li>
-<li>Persistent Queue (<code>Persistent.define-queue</code>)</li>
-<li>Persistent Trie Map (<code>Persistent.define-trie</code>)</li>
-<li>Persistent Deque (<code>Persistent.define-deque</code>)</li>
-<li>Persistent Ordered Map (<code>Persistent.define-ord-map</code>)</li>
-<li>Persistent Ordered Set (<code>Persistent.define-ord-set</code>)</li>
-<li>Persistent Min-Heap (<code>Persistent.define-heap</code>)</li>
-<li>Persistent Hash Map (<code>Persistent.define-hash-map</code>)</li>
-<li>Persistent Hash Set (<code>Persistent.define-hash-set</code>)</li>
-<li>Persistent Vector (<code>Persistent.define-vector</code>)</li>
+<li><strong>List</strong>: singly-linked. Cheap prepend/head/tail.</li>
+<li><strong>Queue</strong>: two-list FIFO with amortized O(1) ends.</li>
+<li><strong>Deque</strong>: two-list double-ended queue.</li>
+<li><strong>Trie</strong>: keyed by <code>(Array K)</code>, supports prefix queries.</li>
+<li><strong>Ordered map / set</strong>: persistent AVL tree (self-balancing BST).</li>
+<li><strong>Heap</strong>: persistent skew min-heap. Everything is <code>merge</code>.</li>
+<li><strong>Hash map / set</strong>: trie keyed by hash digits (depth 8, radix 16).</li>
+<li><strong>Vector</strong>: trie keyed by index digits (depth 7, radix 32).</li>
 </ul>
-<h2>Why Macros</h2>
-<p><code>persistent</code> needs to generate full concrete type families per instantiation,
-not only polymorphic functions:</p>
+<h2>Equality</h2>
+<p><code>ptr-eq</code> compares backing roots and counts; cheap, useful for short-circuiting
+work. <code>=</code> is structural for everything except heap (multiset equality is
+caller-defined).</p>
+<h2>Iteration</h2>
+<p>Every collection exposes <code>reduce</code>, <code>each</code>, and <code>to-array</code>. Map-likes also
+expose <code>keys</code> and <code>values</code>; the trie additionally exposes <code>reduce-values</code>.</p>
+<h2>Stack safety</h2>
+<p>Algorithms that would naively recurse on the C stack are written iteratively:
+list <code>drop-n</code>, queue/deque reversals, trie path rebuilds, ord-map path
+rebuilds, heap merge spine. Deep inputs are bounded by heap memory rather
+than C stack depth.</p>
+<h2>Inherited from <code>rc</code></h2>
 <ul>
-<li>concrete wrapper + internal recursive node types</li>
-<li><code>Rc.define</code> integration for each concrete node type</li>
-<li>explicit per-type namespaces and specialized codegen</li>
-</ul>
-<h2>Architecture</h2>
-<ul>
-<li>updates are path-copy: only touched nodes are rebuilt</li>
-<li>untouched branches are shared through <code>Rc</code></li>
-<li>all major traversals are iterative for deep-input stack safety</li>
-</ul>
-<h2>Representation Notes</h2>
-<ul>
-<li>list/queue/deque: shared persistent list nodes</li>
-<li>trie/hash/vector: trie path routing and path-copy updates</li>
-<li>ord-map/set: unbalanced persistent BST</li>
-<li>heap: persistent skew-heap merge core</li>
-</ul>
-<h2>Semantics</h2>
-<ul>
-<li>most structures provide structural <code>=</code></li>
-<li>heap intentionally omits structural <code>=</code></li>
-<li>every family provides <code>reduce</code>, <code>each</code>, and <code>to-array</code></li>
-</ul>
-<h2>Safety Model</h2>
-<p>Inherited from <code>rc</code>:</p>
-<ul>
-<li>single-threaded usage model</li>
-<li>non-atomic reference counters</li>
+<li>single-threaded; non-atomic counters</li>
 <li>no cycle collection</li>
-<li>iterative payload teardown in <code>rc</code> drain queue</li>
+<li>iterative payload teardown (drain queue) so dropping a deeply nested
+structure doesn't recurse on the C stack</li>
 </ul>
 
                 </div>

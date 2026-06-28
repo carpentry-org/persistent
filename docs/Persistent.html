@@ -18,9 +18,65 @@
                 <div class="index">
                     <ul>
                         <li>
-                            <a href="Persistent.html">
-                                Persistent
-                            </a>
+                            <details>
+                                <summary>
+                                    <a href="Persistent.html">
+                                        Persistent
+                                    </a>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="Persistent.Deque.html">
+                                            Deque
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashMap.html">
+                                            HashMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.HashSet.html">
+                                            HashSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Heap.html">
+                                            Heap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.List.html">
+                                            List
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdMap.html">
+                                            OrdMap
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.OrdSet.html">
+                                            OrdSet
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Queue.html">
+                                            Queue
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Trie.html">
+                                            Trie
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="Persistent.Vector.html">
+                                            Vector
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         <li>
                             <a href="Design.html">
@@ -40,257 +96,219 @@
                     Persistent
                 </h1>
                 <div class="module-description">
-                    <p>Macro-generated persistent data structures backed by <code>Rc</code>.</p>
+                    <p>Generic persistent (immutable) data structures backed by <code>Rc</code>.</p>
+<p>Each structure is a fully generic type (e.g. <code>(Persistent.List a)</code>,
+<code>(Persistent.HashMap k v)</code>) sharing structure through reference counting.</p>
 
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-deque">
-                        <h3 id="define-deque">
-                            define-deque
+                    <a class="anchor" href="#Deque">
+                        <h3 id="Deque">
+                            <a href="Persistent.Deque.html">
+                                Deque
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-deque name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent deque backed by two shared lists.</p>
-<p>Example:</p>
-<p>(Persistent.define-deque IntDeque Int)</p>
-<p>This generates:</p>
-<ul>
-<li>type <code>IntDeque</code></li>
-<li>module <code>IntDeque</code> with deque operations</li>
-<li>internal list type used as front/rear storage</li>
-</ul>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-hash-map">
-                        <h3 id="define-hash-map">
-                            define-hash-map
+                    <a class="anchor" href="#HashMap">
+                        <h3 id="HashMap">
+                            <a href="Persistent.HashMap.html">
+                                HashMap
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-hash-map name key-type value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent hash map using trie-indexed hash buckets.</p>
-<p>Example:</p>
-<p>(Persistent.define-hash-map StrIntMap String Int)</p>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-hash-set">
-                        <h3 id="define-hash-set">
-                            define-hash-set
+                    <a class="anchor" href="#HashSet">
+                        <h3 id="HashSet">
+                            <a href="Persistent.HashSet.html">
+                                HashSet
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-hash-set name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent hash set backed by a hash map.</p>
-<p>Example:</p>
-<p>(Persistent.define-hash-set StrSet String)</p>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-heap">
-                        <h3 id="define-heap">
-                            define-heap
+                    <a class="anchor" href="#Heap">
+                        <h3 id="Heap">
+                            <a href="Persistent.Heap.html">
+                                Heap
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-heap name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent min-heap (skew heap).</p>
-<p>Example:</p>
-<p>(Persistent.define-heap IntHeap Int)</p>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-list">
-                        <h3 id="define-list">
-                            define-list
+                    <a class="anchor" href="#List">
+                        <h3 id="List">
+                            <a href="Persistent.List.html">
+                                List
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-list name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent singly linked list type.</p>
-<p>Example:</p>
-<p>(Persistent.define-list IntList Int)</p>
-<p>This generates:</p>
-<ul>
-<li>type <code>IntList</code></li>
-<li>module <code>IntList</code> with persistent list operations</li>
-<li>internal node and node-<code>Rc</code> types for structural sharing</li>
-</ul>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-ord-map">
-                        <h3 id="define-ord-map">
-                            define-ord-map
+                    <a class="anchor" href="#OrdMap">
+                        <h3 id="OrdMap">
+                            <a href="Persistent.OrdMap.html">
+                                OrdMap
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-ord-map name key-type value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent ordered map backed by a binary search tree.</p>
-<p>Example:</p>
-<p>(Persistent.define-ord-map IntMap Int String)</p>
-<p>This generates:</p>
-<ul>
-<li>type <code>IntMap</code></li>
-<li>module <code>IntMap</code> with ordered-map operations</li>
-<li>internal node and node-<code>Rc</code> types for structural sharing</li>
-</ul>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-ord-set">
-                        <h3 id="define-ord-set">
-                            define-ord-set
+                    <a class="anchor" href="#OrdSet">
+                        <h3 id="OrdSet">
+                            <a href="Persistent.OrdSet.html">
+                                OrdSet
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-ord-set name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent ordered set backed by an ordered map.</p>
-<p>Example:</p>
-<p>(Persistent.define-ord-set IntSet Int)</p>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-queue">
-                        <h3 id="define-queue">
-                            define-queue
+                    <a class="anchor" href="#Queue">
+                        <h3 id="Queue">
+                            <a href="Persistent.Queue.html">
+                                Queue
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-queue name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent amortized O(1) queue using two shared lists.</p>
-<p>Example:</p>
-<p>(Persistent.define-queue IntQueue Int)</p>
-<p>This generates:</p>
-<ul>
-<li>type <code>IntQueue</code></li>
-<li>module <code>IntQueue</code> with queue operations</li>
-<li>internal list type used as front/rear storage</li>
-</ul>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-trie">
-                        <h3 id="define-trie">
-                            define-trie
+                    <a class="anchor" href="#Trie">
+                        <h3 id="Trie">
+                            <a href="Persistent.Trie.html">
+                                Trie
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-trie name key-part-type value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent trie map keyed by <code>(Array K)</code>.</p>
-<p>Example:</p>
-<p>(Persistent.define-trie IntTrie Int String)</p>
-<p>This generates:</p>
-<ul>
-<li>type <code>IntTrie</code></li>
-<li>module <code>IntTrie</code> with trie-map operations</li>
-<li>internal node and node-<code>Rc</code> types for structural sharing</li>
-</ul>
-
+                        
                     </p>
                 </div>
                 <div class="binder">
-                    <a class="anchor" href="#define-vector">
-                        <h3 id="define-vector">
-                            define-vector
+                    <a class="anchor" href="#Vector">
+                        <h3 id="Vector">
+                            <a href="Persistent.Vector.html">
+                                Vector
+                            </a>
                         </h3>
                     </a>
                     <div class="description">
-                        macro
+                        module
                     </div>
                     <p class="sig">
-                        Macro
+                        Module
                     </p>
-                    <pre class="args">
-                        (define-vector name value-type)
-                    </pre>
+                    <span>
+                        
+                    </span>
                     <p class="doc">
-                        <p>Generate a persistent random-access vector indexed by <code>Int</code>.</p>
-<p>Example:</p>
-<p>(Persistent.define-vector IntVec Int)</p>
-
+                        
                     </p>
                 </div>
             </div>

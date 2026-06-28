@@ -5,9 +5,6 @@
 
 (TestHarness.configure-build)
 
-(Persistent.define-trie IntTrie Int String)
-(Persistent.define-trie IntTrieInt Int Int)
-
 (defn assert-memory-balance [state f expected-balance descr]
   (do
     (Debug.reset-memory-balance!)
@@ -23,142 +20,142 @@
   (let [k12 [1 2]
         k123 [1 2 3]
         k124 [1 2 4]
-        t0 (IntTrieInt.empty)
-        t1 (IntTrieInt.insert &k12 1 &t0)
-        t2 (IntTrieInt.insert &k123 2 &t1)
-        t3 (IntTrieInt.insert &k124 3 &t2)
-        t4 (IntTrieInt.remove &k12 &t3)
-        t5 (IntTrieInt.remove &k123 &t4)]
+        t0 (Persistent.Trie.empty)
+        t1 (Persistent.Trie.insert &k12 1 &t0)
+        t2 (Persistent.Trie.insert &k123 2 &t1)
+        t3 (Persistent.Trie.insert &k124 3 &t2)
+        t4 (Persistent.Trie.remove &k12 &t3)
+        t5 (Persistent.Trie.remove &k123 &t4)]
     (ignore t5)))
 
 (deftest test
   (assert-equal test
     true
-    (let [t (IntTrie.empty)] (IntTrie.empty? &t))
+    (let [t (the (Persistent.Trie Int String) (Persistent.Trie.empty))] (Persistent.Trie.empty? &t))
     "empty trie reports empty")
 
   (assert-equal test
     0l
-    (let [t (IntTrie.empty)] (IntTrie.length &t))
+    (let [t (the (Persistent.Trie Int String) (Persistent.Trie.empty))] (Persistent.Trie.length &t))
     "empty trie has size 0")
 
   (assert-equal test
     true
-    (let [t (IntTrie.empty)
-          k [1 2 3]] (Maybe.nothing? &(IntTrie.get &k &t)))
+    (let [t (the (Persistent.Trie Int String) (Persistent.Trie.empty))
+          k [1 2 3]] (Maybe.nothing? &(Persistent.Trie.get &k &t)))
     "get on empty trie returns Nothing")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k [1 2 3]
-          t1 (IntTrie.insert &k @"alpha" &t0)]
-      (match (IntTrie.get &k &t1)
+          t1 (Persistent.Trie.insert &k @"alpha" &t0)]
+      (match (Persistent.Trie.get &k &t1)
         (Maybe.Just v) (= v @"alpha")
         (Maybe.Nothing) false))
     "insert/get roundtrip")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k [1 2 3]
-          t1 (IntTrie.insert &k @"alpha" &t0)]
-      (and (Maybe.nothing? &(IntTrie.get &k &t0)) (IntTrie.contains? &k &t1)))
+          t1 (Persistent.Trie.insert &k @"alpha" &t0)]
+      (and (Maybe.nothing? &(Persistent.Trie.get &k &t0)) (Persistent.Trie.contains? &k &t1)))
     "persistence keeps previous version unchanged")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k [1 2 3]
-          t1 (IntTrie.insert &k @"alpha" &t0)
-          t2 (IntTrie.insert &k @"beta" &t1)]
-      (and (= (IntTrie.length &t1) 1l)
-           (= (IntTrie.length &t2) 1l)
-           (match (IntTrie.get &k &t2)
+          t1 (Persistent.Trie.insert &k @"alpha" &t0)
+          t2 (Persistent.Trie.insert &k @"beta" &t1)]
+      (and (= (Persistent.Trie.length &t1) 1l)
+           (= (Persistent.Trie.length &t2) 1l)
+           (match (Persistent.Trie.get &k &t2)
              (Maybe.Just v) (= v @"beta")
              (Maybe.Nothing) false)))
     "replacing existing key does not change size")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k123 [1 2 3]
           k124 [1 2 4]
           p12 [1 2]
           p9 [9]
-          t1 (IntTrie.insert &k123 @"x" &t0)
-          t2 (IntTrie.insert &k124 @"y" &t1)]
-      (and (= (IntTrie.length &t2) 2l)
-           (IntTrie.contains-prefix? &p12 &t2)
-           (not (IntTrie.contains-prefix? &p9 &t2))))
+          t1 (Persistent.Trie.insert &k123 @"x" &t0)
+          t2 (Persistent.Trie.insert &k124 @"y" &t1)]
+      (and (= (Persistent.Trie.length &t2) 2l)
+           (Persistent.Trie.contains-prefix? &p12 &t2)
+           (not (Persistent.Trie.contains-prefix? &p9 &t2))))
     "branching keys and prefix queries")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k123 [1 2 3]
           k124 [1 2 4]
-          t1 (IntTrie.insert &k123 @"x" &t0)
-          t2 (IntTrie.insert &k124 @"y" &t1)
-          t3 (IntTrie.remove &k123 &t2)]
-      (and (= (IntTrie.length &t3) 1l)
-           (Maybe.nothing? &(IntTrie.get &k123 &t3))
-           (match (IntTrie.get &k124 &t3)
+          t1 (Persistent.Trie.insert &k123 @"x" &t0)
+          t2 (Persistent.Trie.insert &k124 @"y" &t1)
+          t3 (Persistent.Trie.remove &k123 &t2)]
+      (and (= (Persistent.Trie.length &t3) 1l)
+           (Maybe.nothing? &(Persistent.Trie.get &k123 &t3))
+           (match (Persistent.Trie.get &k124 &t3)
              (Maybe.Just v) (= v @"y")
              (Maybe.Nothing) false)))
     "remove prunes key while retaining sibling branch")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k [7 8]
           missing [9 9]
-          t1 (IntTrie.insert &k @"z" &t0)
-          t2 (IntTrie.remove &missing &t1)]
-      (IntTrie.ptr-eq &t1 &t2))
+          t1 (Persistent.Trie.insert &k @"z" &t0)
+          t2 (Persistent.Trie.remove &missing &t1)]
+      (Persistent.Trie.ptr-eq &t1 &t2))
     "remove missing key returns pointer-equivalent trie")
 
   (assert-equal test
     true
     (let [empty-key (the (Array Int) [])
-          t0 (IntTrie.empty)
-          t1 (IntTrie.insert &empty-key @"root" &t0)
-          t2 (IntTrie.remove &empty-key &t1)]
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &empty-key @"root" &t0)
+          t2 (Persistent.Trie.remove &empty-key &t1)]
       (and
-        (match (IntTrie.get &empty-key &t1)
+        (match (Persistent.Trie.get &empty-key &t1)
           (Maybe.Just v) (= v @"root")
           (Maybe.Nothing) false)
-        (= (IntTrie.length &t2) 0l)))
+        (= (Persistent.Trie.length &t2) 0l)))
     "empty key is supported at root")
 
   (assert-equal test
     true
     (let [k (build-long-key 100000)
-          t0 (IntTrie.empty)
-          t1 (IntTrie.insert &k @"deep" &t0)]
-      (and (= (IntTrie.length &t1) 1l)
-           (match (IntTrie.get &k &t1)
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k @"deep" &t0)]
+      (and (= (Persistent.Trie.length &t1) 1l)
+           (match (Persistent.Trie.get &k &t1)
              (Maybe.Just v) (= v @"deep")
              (Maybe.Nothing) false)))
     "inserting a 100k-part key does not blow the C stack (build-branch + insert-node non-tail)")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k1 [1 2]
           k2 [1 2 3]
-          t1 (IntTrie.insert &k1 @"a" &t0)
-          t2 (IntTrie.insert &k2 @"b" &t1)
-          arr (IntTrie.to-array &t2)]
+          t1 (Persistent.Trie.insert &k1 @"a" &t0)
+          t2 (Persistent.Trie.insert &k2 @"b" &t1)
+          arr (Persistent.Trie.to-array &t2)]
       (and (= (Array.length &arr) 2)))
     "to-array yields all entries")
 
   (assert-equal test
     true
-    (let [t0 (IntTrie.empty)
+    (let [t0 (Persistent.Trie.empty)
           k1 [1 2]
-          t1 (IntTrie.insert &k1 @"a" &t0)
-          vs (IntTrie.values &t1)]
+          t1 (Persistent.Trie.insert &k1 @"a" &t0)
+          vs (Persistent.Trie.values &t1)]
       (and (= (Array.length &vs) 1) (= @(Array.unsafe-nth &vs 0) @"a")))
     "values collects into Array")
 
@@ -166,11 +163,11 @@
     true
     (let [k1 [1 2]
           k2 [1 2 3]
-          a (IntTrie.insert &k2 @"b" &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))
-          b (IntTrie.insert &k1 @"a" &(IntTrie.insert &k2 @"b" &(IntTrie.empty)))
-          c (IntTrie.insert &k2
+          a (Persistent.Trie.insert &k2 @"b" &(Persistent.Trie.insert &k1 @"a" &(Persistent.Trie.empty)))
+          b (Persistent.Trie.insert &k1 @"a" &(Persistent.Trie.insert &k2 @"b" &(Persistent.Trie.empty)))
+          c (Persistent.Trie.insert &k2
                             @"DIFF"
-                            &(IntTrie.insert &k1 @"a" &(IntTrie.empty)))]
+                            &(Persistent.Trie.insert &k1 @"a" &(Persistent.Trie.empty)))]
       (and (= &a &b) (not (= &a &c))))
     "= is structural across insertion orders")
 
@@ -178,24 +175,24 @@
     true
     (let [k1 [1 2]
           k2 [3 4]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 20 &t1)
-          mapped (IntTrieInt.map-values &(fn [v] (+ v 100)) &t2)]
-      (and (= (IntTrieInt.length &mapped) 2l)
-           (match (IntTrieInt.get &k1 &mapped)
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 20 &t1)
+          mapped (Persistent.Trie.map-values &(fn [v] (+ v 100)) &t2)]
+      (and (= (Persistent.Trie.length &mapped) 2l)
+           (match (Persistent.Trie.get &k1 &mapped)
              (Maybe.Just v) (= v 110)
              (Maybe.Nothing) false)
-           (match (IntTrieInt.get &k2 &mapped)
+           (match (Persistent.Trie.get &k2 &mapped)
              (Maybe.Just v) (= v 120)
              (Maybe.Nothing) false)))
     "map-values transforms values keeping keys")
 
   (assert-equal test
     true
-    (let [t (IntTrieInt.empty)
-          mapped (IntTrieInt.map-values &(fn [v] (+ v 1)) &t)]
-      (IntTrieInt.empty? &mapped))
+    (let [t (the (Persistent.Trie Int Int) (Persistent.Trie.empty))
+          mapped (Persistent.Trie.map-values &(fn [v] (+ v 1)) &t)]
+      (Persistent.Trie.empty? &mapped))
     "map-values over empty trie yields empty")
 
   (assert-equal test
@@ -203,89 +200,89 @@
     (let [k1 [1 2]
           k2 [3 4]
           k3 [5 6]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 20 &t1)
-          t3 (IntTrieInt.insert &k3 5 &t2)
-          filtered (IntTrieInt.filter &(fn [p] (> @(Pair.b p) 8)) &t3)]
-      (and (= (IntTrieInt.length &filtered) 2l)
-           (IntTrieInt.contains? &k1 &filtered)
-           (IntTrieInt.contains? &k2 &filtered)
-           (not (IntTrieInt.contains? &k3 &filtered))))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 20 &t1)
+          t3 (Persistent.Trie.insert &k3 5 &t2)
+          filtered (Persistent.Trie.filter &(fn [p] (> @(Pair.b p) 8)) &t3)]
+      (and (= (Persistent.Trie.length &filtered) 2l)
+           (Persistent.Trie.contains? &k1 &filtered)
+           (Persistent.Trie.contains? &k2 &filtered)
+           (not (Persistent.Trie.contains? &k3 &filtered))))
     "filter keeps entries matching predicate")
 
   (assert-equal test
     true
     (let [k1 [1]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          filtered (IntTrieInt.filter &(fn [p] false) &t1)]
-      (IntTrieInt.empty? &filtered))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          filtered (Persistent.Trie.filter &(fn [p] false) &t1)]
+      (Persistent.Trie.empty? &filtered))
     "filter with always-false yields empty trie")
 
   (assert-equal test
     true
     (let [k1 [1 2]
           k2 [3 4]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 5 &t1)]
-      (IntTrieInt.any? &(fn [p] (> @(Pair.b p) 8)) &t2))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 5 &t1)]
+      (Persistent.Trie.any? &(fn [p] (> @(Pair.b p) 8)) &t2))
     "any? finds matching entry")
 
   (assert-equal test
     false
     (let [k1 [1 2]
           k2 [3 4]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 5 &t1)]
-      (IntTrieInt.any? &(fn [p] (> @(Pair.b p) 99)) &t2))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 5 &t1)]
+      (Persistent.Trie.any? &(fn [p] (> @(Pair.b p) 99)) &t2))
     "any? returns false when none match")
 
   (assert-equal test
     true
     (let [k1 [1 2]
           k2 [3 4]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 5 &t1)]
-      (IntTrieInt.all? &(fn [p] (> @(Pair.b p) 0)) &t2))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 5 &t1)]
+      (Persistent.Trie.all? &(fn [p] (> @(Pair.b p) 0)) &t2))
     "all? returns true when all match")
 
   (assert-equal test
     false
     (let [k1 [1 2]
           k2 [3 4]
-          t0 (IntTrieInt.empty)
-          t1 (IntTrieInt.insert &k1 10 &t0)
-          t2 (IntTrieInt.insert &k2 5 &t1)]
-      (IntTrieInt.all? &(fn [p] (> @(Pair.b p) 8)) &t2))
+          t0 (Persistent.Trie.empty)
+          t1 (Persistent.Trie.insert &k1 10 &t0)
+          t2 (Persistent.Trie.insert &k2 5 &t1)]
+      (Persistent.Trie.all? &(fn [p] (> @(Pair.b p) 8)) &t2))
     "all? returns false when not all match")
 
   (assert-equal test
     false
-    (IntTrieInt.any? &(fn [p] true) &(IntTrieInt.empty))
+    (Persistent.Trie.any? &(fn [p] true) &(the (Persistent.Trie Int String) (Persistent.Trie.empty)))
     "any? on empty returns false")
 
   (assert-equal test
     true
-    (IntTrieInt.all? &(fn [p] false) &(IntTrieInt.empty))
+    (Persistent.Trie.all? &(fn [p] false) &(the (Persistent.Trie Int String) (Persistent.Trie.empty)))
     "all? on empty returns true")
 
   (assert-equal test
     true
     (let [arr [(Pair.init [1 2] @"a") (Pair.init [3 4] @"b")]
-          t (IntTrie.from-array &arr)]
-      (and (= (IntTrie.length &t) 2l)
-           (= &(Maybe.Just @"a") &(IntTrie.get &[1 2] &t))
-           (= &(Maybe.Just @"b") &(IntTrie.get &[3 4] &t))))
+          t (Persistent.Trie.from-array &arr)]
+      (and (= (Persistent.Trie.length &t) 2l)
+           (= &(Maybe.Just @"a") &(Persistent.Trie.get &[1 2] &t))
+           (= &(Maybe.Just @"b") &(Persistent.Trie.get &[3 4] &t))))
     "from-array builds trie from key-value pairs")
 
   (assert-equal test
     true
-    (let [t (IntTrie.from-array &(the (Array (Pair (Array Int) String)) []))]
-      (IntTrie.empty? &t))
+    (let [t (Persistent.Trie.from-array &(the (Array (Pair (Array Int) String)) []))]
+      (Persistent.Trie.empty? &t))
     "from-array on empty array yields empty trie")
 
   (assert-memory-balance test
