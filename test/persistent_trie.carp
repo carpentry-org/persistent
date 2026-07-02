@@ -16,6 +16,11 @@
     (for [i 0 n] (set! k (Array.push-back k i)))
     k))
 
+(defn build-wide-trie [n]
+  (let-do [t (the (Persistent.Trie Int Int) (Persistent.Trie.empty))]
+    (for [i 0 n] (set! t (Persistent.Trie.insert &[i] i &t)))
+    t))
+
 (defn trie-branch-lifecycle []
   (let [k12 [1 2]
         k123 [1 2 3]
@@ -138,6 +143,27 @@
              (Maybe.Just v) (= v @"deep")
              (Maybe.Nothing) false)))
     "inserting a 100k-part key does not blow the C stack (build-branch + insert-node non-tail)")
+
+  (assert-equal test
+    true
+    (let [n 10000
+          t (build-wide-trie n)
+          first-key [0]
+          mid-key [(/ n 2)]
+          last-key [(Int.dec n)]
+          missing-key [n]]
+      (and
+        (= (Persistent.Trie.length &t) (Long.from-int n))
+        (= &(Maybe.Just 0) &(Persistent.Trie.get &first-key &t))
+        (= &(Maybe.Just (/ n 2)) &(Persistent.Trie.get &mid-key &t))
+        (= &(Maybe.Just (Int.dec n)) &(Persistent.Trie.get &last-key &t))
+        (Maybe.nothing? &(Persistent.Trie.get &missing-key &t))
+        (let [t2 (Persistent.Trie.remove &mid-key &t)]
+          (and
+            (= (Persistent.Trie.length &t2) (Long.from-int (Int.dec n)))
+            (Maybe.nothing? &(Persistent.Trie.get &mid-key &t2))
+            (= &(Maybe.Just 0) &(Persistent.Trie.get &first-key &t2))))))
+    "wide trie with 10k siblings does not blow the C stack (sibling-find/upsert/remove non-tail)")
 
   (assert-equal test
     true
