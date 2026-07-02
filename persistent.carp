@@ -446,13 +446,22 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                  [k (Ref (Maybe (Rc (Persistent.TrieNode k v))) q)]
                  (Maybe (Rc (Persistent.TrieNode k v)))))
           (defn sibling-find [label siblings-ref]
-            (match-ref siblings-ref
-              (Maybe.Nothing) (Maybe.Nothing)
-              (Maybe.Just head-rc)
-                (let [head-ref (Rc.value-ref head-rc)]
-                  (if (node-label-matches? @&label head-ref)
-                    (Maybe.Just @head-rc)
-                    (sibling-find label (Persistent.TrieNode.sibling head-ref))))))
+            (let-do [stack (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     result (the (Maybe (Rc (Persistent.TrieNode k v))) (Maybe.Nothing))]
+              (match-ref siblings-ref
+                (Maybe.Nothing) ()
+                (Maybe.Just first-rc)
+                  (set! stack (Array.push-back stack @first-rc)))
+              (while-do (and (Maybe.nothing? &result) (> (Array.length &stack) 0))
+                (let [top-rc (Array.pop-back! &stack)
+                      top-ref (Rc.value-ref &top-rc)]
+                  (if (node-label-matches? @&label top-ref)
+                    (set! result (Maybe.Just @&top-rc))
+                    (match-ref (Persistent.TrieNode.sibling top-ref)
+                      (Maybe.Nothing) ()
+                      (Maybe.Just next-rc)
+                        (set! stack (Array.push-back stack @next-rc))))))
+              result))
 
           (private sibling-upsert)
           (hidden sibling-upsert)
@@ -463,26 +472,42 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                   (Ref (Maybe (Rc (Persistent.TrieNode k v))) r)]
                  (Pair (Maybe (Rc (Persistent.TrieNode k v))) Bool)))
           (defn sibling-upsert [label child-rc-ref siblings-ref]
-            (match-ref siblings-ref
-              (Maybe.Nothing) (Pair.init (Maybe.Just @child-rc-ref) false)
-              (Maybe.Just head-rc)
-                (let [head-node (Rc.get head-rc)]
-                  (if (node-label-matches? @&label &head-node)
-                    (let [child-node (Rc.get child-rc-ref)
-                          repl-node (Persistent.TrieNode.init @(Persistent.TrieNode.label &child-node)
-                                                @(Persistent.TrieNode.value &child-node)
-                                                @(Persistent.TrieNode.child &child-node)
-                                                @(Persistent.TrieNode.sibling &head-node))]
-                      (Pair.init (Maybe.Just (Rc.new repl-node)) true))
-                    (let [rec (sibling-upsert label
-                                              child-rc-ref
-                                              (Persistent.TrieNode.sibling &head-node))
-                          rebuilt (Persistent.TrieNode.init @(Persistent.TrieNode.label &head-node)
-                                              @(Persistent.TrieNode.value &head-node)
-                                              @(Persistent.TrieNode.child &head-node)
-                                              @(Pair.a &rec))]
-                      (Pair.init (Maybe.Just (Rc.new rebuilt))
-                                 @(Pair.b &rec)))))))
+            (let-do [spine (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     stack (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     found false
+                     tail (the (Maybe (Rc (Persistent.TrieNode k v))) (Maybe.Nothing))]
+              (match-ref siblings-ref
+                (Maybe.Nothing) ()
+                (Maybe.Just first-rc)
+                  (set! stack (Array.push-back stack @first-rc)))
+              (while-do (and (not found) (> (Array.length &stack) 0))
+                (let [top-rc (Array.pop-back! &stack)
+                      head-ref (Rc.value-ref &top-rc)]
+                  (if (node-label-matches? @&label head-ref)
+                    (let-do [child-node (Rc.get child-rc-ref)
+                             repl-node (Persistent.TrieNode.init @(Persistent.TrieNode.label &child-node)
+                                          @(Persistent.TrieNode.value &child-node)
+                                          @(Persistent.TrieNode.child &child-node)
+                                          @(Persistent.TrieNode.sibling head-ref))]
+                      (set! tail (Maybe.Just (Rc.new repl-node)))
+                      (set! found true))
+                    (do
+                      (match-ref (Persistent.TrieNode.sibling head-ref)
+                        (Maybe.Nothing) ()
+                        (Maybe.Just next-rc)
+                          (set! stack (Array.push-back stack @next-rc)))
+                      (set! spine (Array.push-back spine @&top-rc))))))
+              (unless found (set! tail (Maybe.Just @child-rc-ref)))
+              (let-do [i (Int.dec (Array.length &spine))]
+                (while-do (>= i 0)
+                  (let-do [node-ref (Rc.value-ref (Array.unsafe-nth &spine i))
+                           rebuilt (Persistent.TrieNode.init @(Persistent.TrieNode.label node-ref)
+                                      @(Persistent.TrieNode.value node-ref)
+                                      @(Persistent.TrieNode.child node-ref)
+                                      @&tail)]
+                    (set! tail (Maybe.Just (Rc.new rebuilt)))
+                    (set! i (Int.dec i)))))
+              (Pair.init tail found)))
 
           (private sibling-remove)
           (hidden sibling-remove)
@@ -491,22 +516,38 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                  [k (Ref (Maybe (Rc (Persistent.TrieNode k v))) q)]
                  (Pair (Maybe (Rc (Persistent.TrieNode k v))) Bool)))
           (defn sibling-remove [label siblings-ref]
-            (match-ref siblings-ref
-              (Maybe.Nothing) (Pair.init (Maybe.Nothing) false)
-              (Maybe.Just head-rc)
-                (let [head-node (Rc.get head-rc)]
-                  (if (node-label-matches? @&label &head-node)
-                    (Pair.init @(Persistent.TrieNode.sibling &head-node) true)
-                    (let [rec (sibling-remove label
-                                              (Persistent.TrieNode.sibling &head-node))]
-                      (if (not @(Pair.b &rec))
-                        (Pair.init (Maybe.Just @head-rc) false)
-                        (let [rebuilt (Persistent.TrieNode.init @(Persistent.TrieNode.label &head-node)
-                                                  @(Persistent.TrieNode.value &head-node)
-                                                  @(Persistent.TrieNode.child &head-node)
-                                                  @(Pair.a &rec))]
-                          (Pair.init (Maybe.Just (Rc.new rebuilt))
-                                     true))))))))
+            (let-do [spine (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     stack (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     found false
+                     tail (the (Maybe (Rc (Persistent.TrieNode k v))) (Maybe.Nothing))]
+              (match-ref siblings-ref
+                (Maybe.Nothing) ()
+                (Maybe.Just first-rc)
+                  (set! stack (Array.push-back stack @first-rc)))
+              (while-do (and (not found) (> (Array.length &stack) 0))
+                (let [top-rc (Array.pop-back! &stack)
+                      head-ref (Rc.value-ref &top-rc)]
+                  (if (node-label-matches? @&label head-ref)
+                    (do (set! tail @(Persistent.TrieNode.sibling head-ref)) (set! found true))
+                    (do
+                      (match-ref (Persistent.TrieNode.sibling head-ref)
+                        (Maybe.Nothing) ()
+                        (Maybe.Just next-rc)
+                          (set! stack (Array.push-back stack @next-rc)))
+                      (set! spine (Array.push-back spine @&top-rc))))))
+              (if (not found)
+                (Pair.init @siblings-ref false)
+                (do
+                  (let-do [i (Int.dec (Array.length &spine))]
+                    (while-do (>= i 0)
+                      (let-do [node-ref (Rc.value-ref (Array.unsafe-nth &spine i))
+                               rebuilt (Persistent.TrieNode.init @(Persistent.TrieNode.label node-ref)
+                                          @(Persistent.TrieNode.value node-ref)
+                                          @(Persistent.TrieNode.child node-ref)
+                                          @&tail)]
+                        (set! tail (Maybe.Just (Rc.new rebuilt)))
+                        (set! i (Int.dec i)))))
+                  (Pair.init tail true)))))
 
           (private build-branch)
           (hidden build-branch)
@@ -589,22 +630,36 @@ Each structure is a fully generic type (e.g. `(Persistent.List a)`,
                   Int]
                  (Maybe v)))
           (defn get-in-siblings [part siblings-ref key-ref index]
-            (match-ref siblings-ref
-              (Maybe.Nothing) (Maybe.Nothing)
-              (Maybe.Just head-rc)
-                (let [head-ref (Rc.value-ref head-rc)]
-                  (if (node-label-matches? @&part head-ref)
-                    (let [next-i (Int.inc index)]
+            (let-do [cur-part part
+                     cur-index index
+                     stack (the (Array (Rc (Persistent.TrieNode k v))) [])
+                     result (the (Maybe v) (Maybe.Nothing))
+                     done false]
+              (match-ref siblings-ref
+                (Maybe.Nothing) (set! done true)
+                (Maybe.Just first-rc)
+                  (set! stack (Array.push-back stack @first-rc)))
+              (while-do (and (not done) (> (Array.length &stack) 0))
+                (let [top-rc (Array.pop-back! &stack)
+                      head-ref (Rc.value-ref &top-rc)]
+                  (if (node-label-matches? @&cur-part head-ref)
+                    (let [next-i (Int.inc cur-index)]
                       (if (>= next-i (Array.length key-ref))
-                        @(Persistent.TrieNode.value head-ref)
-                        (get-in-siblings @(Array.unsafe-nth key-ref next-i)
-                                         (Persistent.TrieNode.child head-ref)
-                                         key-ref
-                                         next-i)))
-                    (get-in-siblings part
-                                     (Persistent.TrieNode.sibling head-ref)
-                                     key-ref
-                                     index)))))
+                        (do
+                          (set! result @(Persistent.TrieNode.value head-ref))
+                          (set! done true))
+                        (do
+                          (set! cur-part @(Array.unsafe-nth key-ref next-i))
+                          (set! cur-index next-i)
+                          (match-ref (Persistent.TrieNode.child head-ref)
+                            (Maybe.Nothing) (set! done true)
+                            (Maybe.Just child-rc)
+                              (set! stack (Array.push-back stack @child-rc))))))
+                    (match-ref (Persistent.TrieNode.sibling head-ref)
+                      (Maybe.Nothing) (set! done true)
+                      (Maybe.Just next-rc)
+                        (set! stack (Array.push-back stack @next-rc))))))
+              result))
 
           (private get-node)
           (hidden get-node)
